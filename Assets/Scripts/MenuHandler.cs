@@ -34,9 +34,9 @@ public class MenuHandler : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
-    public void goToEndGame()
+    public void quitGame()
     {
-        UnityEngine.SceneManagement.SceneManager.LoadScene("GameOver");
+        Application.Quit();
     }
 
 }
