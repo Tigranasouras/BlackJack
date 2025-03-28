@@ -8,11 +8,17 @@ public class GameManager : MonoBehaviour
     public int playerScore = 0;
     public int dealerScore = 0;
     public TMPro.TextMeshProUGUI statusText;
+    public CardManager cardManager;
+    public TMPro.TextMeshProUGUI dealerCountText;
+    public TMPro.TextMeshProUGUI playerCountText;
 
     public void onHit()
     {
-        //Deal Card
-        playerScore += 0; // Score of dealt card
+        cardManager.DealCard(true);
+        playerScore += DrawRandomCardScore(); // Score of dealt card
+
+        playerCountText.text = "Player Count: " + playerScore.ToString("00");
+
 
         if (playerScore > 21)
         {
@@ -22,10 +28,14 @@ public class GameManager : MonoBehaviour
 
     public void onStand()
     {
+
         while (dealerScore < 17)
         {
-            //DealCard
-            dealerScore += 0; //The score of the dealt card
+            cardManager.DealCard(false);
+            dealerScore += DrawRandomCardScore(); //The score of the dealt card
+
+            dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
+
         }
         if (dealerScore > 21 || playerScore > dealerScore)
         {
