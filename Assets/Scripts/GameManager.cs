@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using TMPro.Examples;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -22,12 +23,26 @@ public class GameManager : MonoBehaviour
     bool wagered = false;
     bool wagerClose = false;
 
+    bool card1 = false;
+
+
     public void onHit()
     {
         if (!handEnd && wagered)
         {
             wagerClose = true;
             handStart = true;
+
+            if(card1 == false){ // to give 1 card to dealer
+            cardManager.DealCard(false);
+            dealerScore += DrawRandomCardScore(); //The score of the dealt card
+
+            dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
+            card1 = true;
+            }
+
+
+
             cardManager.DealCard(true);
             playerScore += DrawRandomCardScore(); // Score of dealt card
 
@@ -43,7 +58,7 @@ public class GameManager : MonoBehaviour
                 handStart = false;
                 playerWager = 0;
                 UpdateWagerText();
-
+                card1 = false;
 
             }
         }
@@ -56,6 +71,7 @@ public class GameManager : MonoBehaviour
     {
         if (handStart && wagered)
         {
+
 
             while (dealerScore < 17)
         {
@@ -143,6 +159,7 @@ public class GameManager : MonoBehaviour
         wagered = false;
         wagerClose = false;
         handStart = false;
+        card1 = false;
         playerScore = 0;
         dealerScore = 0;
         playerWager = 0;
@@ -167,6 +184,7 @@ public class GameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
+        card1 = false;
     }
 
 
@@ -179,6 +197,7 @@ public class GameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
+        card1 = false;
 
     }
 
@@ -191,6 +210,7 @@ public class GameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
+        card1 = false;
 
     }
 
@@ -203,6 +223,7 @@ public class GameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
+        card1 = false;
     }
 
     private void UpdateCashText()
