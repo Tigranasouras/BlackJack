@@ -219,6 +219,10 @@ public class GameManager : MonoBehaviour
     {
         if (!wagerClose && cash >= amount)
         {
+            if(amount == -15){
+                amount = cash;
+            }
+
             playerWager += amount;
             cash -= amount;
             UpdateCashText();
@@ -228,11 +232,22 @@ public class GameManager : MonoBehaviour
                 statusText.text = "Waiting on Player!";
             }
 
+
         }
         else if(cash < amount)
         {
             statusText.text = "Not enough Cash!";
         }
+
+        
     }
+
+    public void AddWagerButtonAllIn()
+    {
+        int money = cash;
+
+        addWager(money);
+    }
+
 
 }

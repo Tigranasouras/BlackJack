@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class ButtonHandler : MonoBehaviour
+
+
 {
     public GameManager gameManager;
+
     public void hitButton()
     {
         gameManager.onHit();
@@ -36,4 +39,11 @@ public class ButtonHandler : MonoBehaviour
     {
         gameManager.addWager(10000);
     }
+
+    public void AddWagerButtonAll()
+    {
+        gameManager.addWager(-15);
+    }
+    
+    
 }
