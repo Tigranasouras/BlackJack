@@ -6,7 +6,7 @@ public class ButtonHandler : MonoBehaviour
 
 
 {
-    public GameManager gameManager;
+    public gameManager gameManager;
 
     public void hitButton()
     {

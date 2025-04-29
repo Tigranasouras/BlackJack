@@ -4,7 +4,7 @@ using TMPro.Examples;
 using Unity.VisualScripting;
 using UnityEngine;
 
-public class GameManager : MonoBehaviour
+public class gameManager : MonoBehaviour
 {
     public int playerScore = 0;
     public int dealerScore = 0;
