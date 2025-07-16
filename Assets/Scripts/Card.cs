@@ -1,16 +1,21 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Card : MonoBehaviour
 {
     public string suit;
-    public int value;
+    public int value; // 1 = Ace, 11 = Jack, 12 = Queen, 13 = King
     public int countValue;
+    bool show;
 
-    public SpriteRenderer spriteRenderer; //To show the cards
+    public Image image; //To show the cards
+    private Sprite frontSprite; //Stores the correct face of the card after SetCard()
+    public Sprite backSprite; //assigned in the Inspector
 
-    public Sprite[] cardSprites; //Assign 52 card Sprites in order or via Script
+    private bool isFaceUp = true;
+
 
     public void SetCard(string suit, int value)
     {
@@ -37,19 +42,30 @@ public class Card : MonoBehaviour
 
     private void UpdateCardVisual()
     {
-        //For example, a basic card sprite naming Strategy:
-        //Names like "Spades_1", "Hearts_11", etc.
-        string spriteName = $"{suit}_{value}";
-        Sprite cardSprite = Resources.Load<Sprite>($"Cards/{spriteName}");
+        string path = $"Cards/{suit}_{value}"; // E.g., "Cards/Spades_1"
+        Sprite cardSprite = Resources.Load<Sprite>(path);
 
         if (cardSprite != null)
         {
-            spriteRenderer.sprite = cardSprite;
+            frontSprite = cardSprite;
+            image.sprite = frontSprite;
         }
         else
         {
-            Debug.LogWarning($"Missing sprite for {spriteName}");
+            Debug.LogWarning($"Missing sprite for {path}");
         }
     }
+
+    public void ShowBack(bool show)
+    {
+        isFaceUp = !show;
+        image.sprite = show ? backSprite : frontSprite;
+    }
+
+    public bool IsFaceUp()
+    {
+        return isFaceUp;
+    }
+
 
 }

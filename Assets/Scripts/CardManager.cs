@@ -1,16 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 public class CardManager : MonoBehaviour
 {
     public GameObject cardPrefab; //Card visuals
-    public Transform dealerArea, playerArea;
+    public Transform dealerArea, playerArea, deckArea;
     public TMPro.TextMeshProUGUI cardCountText;
     
 
-    private List<Card> deck = new List<Card>();
+    private List<CardData> deck = new List<CardData>();
     private int runningCount = 0;
+
+    //[Range(1,8]
+    public int numerOfDecks = 6;
     
 
     void Start()
@@ -23,44 +27,54 @@ public class CardManager : MonoBehaviour
 
     public Card DealCard(bool toPlayer)
     {
+        CheckShuffleNeeded();
         if (deck.Count == 0)
         {
             return null;
         }
 
-        Card drawnCard = deck[0]; //first card in deck
+        CardData drawnCard = deck[0]; //first card in deck
         deck.RemoveAt(0); // remove top
         runningCount += drawnCard.countValue; // add to running total
         UpdateCardCountUI();
 
-        GameObject cardGO = Instantiate(cardPrefab, toPlayer ? playerArea : dealerArea); // pick between player or dealer
-        cardGO.GetComponent<Card>().SetCard(drawnCard.suit, drawnCard.value); // assigns value
+        Transform parentArea = toPlayer ? playerArea : dealerArea;
 
-        return drawnCard; //Return the drawn card so GameManager can access its value
+        GameObject cardGO = Instantiate(cardPrefab, parentArea); // set parent
+        Card cardComponent = cardGO.GetComponent<Card>();
+        cardComponent.SetCard(drawnCard.suit, drawnCard.value);
+        return cardComponent; //Return the drawn card so GameManager can access its value
     }
 
 
 
     void UpdateCardCountUI()
     {
-        cardCountText.text = "Card Count: " + runningCount;
+        cardCountText.text = "Running: " + runningCount + "\nTrue: " + GetTrueCount().ToString("0.0");
     }
 
     void GenerateDeck()
     {
-        string[] suits = { "Spades", "Hearts", "Clubs", "Diamonds" };
+        deck.Clear();
 
-        foreach (string suit in suits)
+        for (int d = 0; d < numerOfDecks; d++)
         {
-            for (int i = 1; i <= 13; i++)
+            string[] suits = { "Spades", "Hearts", "Clubs", "Diamonds" };
+            foreach(string suit in suits)
             {
-                GameObject cardObj = Instantiate(cardPrefab);
-                Card card = cardObj.GetComponent<Card>();
-                int cardValue = Mathf.Min(i, 10); // Face cards worth 10
-                card.SetCard(suit, i == 1 ? 11 : cardValue); // Ace = 11 by default
-                deck.Add(card);
-                cardObj.SetActive(true);
+                for (int i = 1; i <= 13; i++)
+                {
+
+
+                    int cardValue = Mathf.Min(i, 10); // Face cards worth 10
+                    int actualValue = (i == 1) ? 11 : cardValue; //Ace = 11 by default
+
+                    var cardData = new CardData(suit, actualValue);
+
+                    deck.Add(cardData);
+                }
             }
+            
         }
     }
 
@@ -68,7 +82,7 @@ public class CardManager : MonoBehaviour
     {
         for (int i = 0; i < deck.Count; i++) // thank god for algorithms
         {
-            Card temp = deck[i];
+            CardData temp = deck[i];
             int rand = Random.Range(i, deck.Count);
             deck[i] = deck[rand];
             deck[rand] = temp;
@@ -79,4 +93,24 @@ public class CardManager : MonoBehaviour
     {
         return runningCount;
     }
+
+    public float GetTrueCount()
+    {
+        float decksRemaining = Mathf.Max(deck.Count / 52f, 1f);
+        return runningCount / decksRemaining;
+    }
+
+
+    void CheckShuffleNeeded()
+    {
+        float penetration = 1f - (deck.Count / (float)(numerOfDecks * 52));
+        if (penetration >= 0.75f)
+        {
+            GenerateDeck();
+            ShuffleDeck();
+            runningCount = 0;
+            Debug.Log("Deck reshuffled due to penetration.");
+        }
+    }
+
 }

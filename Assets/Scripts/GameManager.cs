@@ -23,8 +23,6 @@ public class gameManager : MonoBehaviour
     bool wagered = false;
     bool wagerClose = false;
 
-    bool card1 = false;
-
     private List<Card> playerHand = new List<Card>();
     private List<Card> dealerHand = new List<Card>();
 
@@ -52,28 +50,53 @@ public class gameManager : MonoBehaviour
         return total;
     }
 
+    public void DealInitialCards()
+    {
+        if(dealerHand.Count == 0 && playerHand.Count == 0)
+            {
+            // 1st card to player
+            Card playerCard1 = cardManager.DealCard(true);
+            playerHand.Add(playerCard1);
+
+            // 1st card to dealer - face-down
+            Card dealerCard1 = cardManager.DealCard(false);
+            dealerCard1.ShowBack(true);
+            dealerHand.Add(dealerCard1);
+
+            // 2nd card to player
+            Card playerCard2 = cardManager.DealCard(true);
+            playerHand.Add(playerCard2);
+
+            // 2nd card to dealer - face-up
+            Card dealerCard2 = cardManager.DealCard(false);
+            dealerCard2.ShowBack(false);
+            dealerHand.Add(dealerCard2);
+
+            playerScore = CalculateHandScore(playerHand);
+            dealerScore = CalculateHandScore(dealerHand);
+
+            playerCountText.text = playerScore.ToString("00");
+            dealerCountText.text = "??";
+        }
+
+    }
+
     public void onHit()
     {
         if (!handEnd && wagered)
         {
             wagerClose = true;
-            handStart = true;
-
-            if(card1 == false) // to give 1 card to dealer
-            { 
-            Card dealerCard = cardManager.DealCard(false); //gets the card dealt
-             dealerHand.Add(dealerCard); // adds card to DealerHand List
-             dealerScore = CalculateHandScore(dealerHand);
-            dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
-            card1 = true;
+            if (!handStart)
+            {
+                DealInitialCards();
+                handStart = true;
+                return;
             }
-
-
 
             Card playerCard = cardManager.DealCard(true); //gets the card dealt
             playerHand.Add(playerCard);
-            playerScore += CalculateHandScore(playerHand); // Score of dealt card
-            playerCountText.text = "Player Count: " + playerScore.ToString("00");
+            playerScore = CalculateHandScore(playerHand); // Score of dealt card
+            playerCountText.text = playerScore.ToString("00");
 
 
             if (playerScore > 21)
@@ -85,7 +108,6 @@ public class gameManager : MonoBehaviour
                 handStart = false;
                 playerWager = 0;
                 UpdateWagerText();
-                card1 = false;
 
             }
         }
@@ -99,13 +121,19 @@ public class gameManager : MonoBehaviour
         if (handStart && wagered)
         {
 
+            if(dealerHand.Count > 0 ) //Reveal first Card
+            {
+                dealerHand[0].ShowBack(false); //Reveal the hold card
+                dealerCountText.text = dealerScore.ToString("00");
+            }
+
 
             while (dealerScore < 17)
         {
             Card dealerCard = cardManager.DealCard(false); //Get the dealer Card
                 dealerHand.Add(dealerCard); // adds card to DealerHand List
                 dealerScore = CalculateHandScore(dealerHand);
-                dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
+                dealerCountText.text = dealerScore.ToString("00");
 
         }
         if (dealerScore > 21 || playerScore > dealerScore)
@@ -148,7 +176,7 @@ public class gameManager : MonoBehaviour
             Card playerCard = cardManager.DealCard(true); // get the card Dealt
             playerHand.Add(playerCard); // adds card to DealerHand List
             playerScore = CalculateHandScore(playerHand);
-            playerCountText.text = "Player Count: " + playerScore.ToString("00");
+            playerCountText.text = playerScore.ToString("00");
 
             if (playerScore > 21)
             {
@@ -175,32 +203,28 @@ public class gameManager : MonoBehaviour
         }
     }
 
-
-    int DrawRandomCardScore() { return Random.Range(1, 11);}
-
     public void resetGame()
     {
         handEnd = false;
         wagered = false;
         wagerClose = false;
         handStart = false;
-        card1 = false;
         playerHand.Clear();
         dealerHand.Clear();
 
         playerScore = 0;
         dealerScore = 0;
         playerWager = 0;
-     
 
+        ClearCards(cardManager.playerArea);
+        ClearCards(cardManager.dealerArea);
 
-        playerCountText.text = "Player Count: 00";
-        dealerCountText.text = "Dealer Count: 00";
+        playerCountText.text = "00";
+        dealerCountText.text = "00";
         cashCountText.text = cash.ToString("N0");
         wagerText.text = "Wager: $" + playerWager.ToString("N0");
 
-        statusText.text = "Waitng on player!";
-
+        statusText.text = "Waiting on player!";
     }
 
     private void push()
@@ -212,7 +236,6 @@ public class gameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
-        card1 = false;
     }
 
 
@@ -225,7 +248,6 @@ public class gameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
-        card1 = false;
 
     }
 
@@ -238,7 +260,6 @@ public class gameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
-        card1 = false;
 
     }
 
@@ -251,7 +272,6 @@ public class gameManager : MonoBehaviour
         handStart = false;
         playerWager = 0;
         UpdateWagerText();
-        card1 = false;
     }
 
     private void UpdateCashText()
@@ -297,6 +317,16 @@ public class gameManager : MonoBehaviour
 
         addWager(money);
     }
+
+    void ClearCards(Transform area)
+    {
+        foreach(Transform child in area)
+        {
+            Destroy(child.gameObject);
+        }
+    }
+
+    
 
 
 }
