@@ -12,8 +12,6 @@ public class gameManager : MonoBehaviour
     public int playerWager = 0;
     public TMPro.TextMeshProUGUI statusText;
     public CardManager cardManager;
-    public TMPro.TextMeshProUGUI dealerCountText;
-    public TMPro.TextMeshProUGUI playerCountText;
 
     public TMPro.TextMeshProUGUI cashCountText;
     public TMPro.TextMeshProUGUI wagerText;
@@ -75,8 +73,6 @@ public class gameManager : MonoBehaviour
             playerScore = CalculateHandScore(playerHand);
             dealerScore = CalculateHandScore(dealerHand);
 
-            playerCountText.text = playerScore.ToString("00");
-            dealerCountText.text = "??";
         }
 
     }
@@ -96,7 +92,6 @@ public class gameManager : MonoBehaviour
             Card playerCard = cardManager.DealCard(true); //gets the card dealt
             playerHand.Add(playerCard);
             playerScore = CalculateHandScore(playerHand); // Score of dealt card
-            playerCountText.text = playerScore.ToString("00");
 
 
             if (playerScore > 21)
@@ -124,7 +119,6 @@ public class gameManager : MonoBehaviour
             if(dealerHand.Count > 0 ) //Reveal first Card
             {
                 dealerHand[0].ShowBack(false); //Reveal the hold card
-                dealerCountText.text = dealerScore.ToString("00");
             }
 
 
@@ -133,7 +127,6 @@ public class gameManager : MonoBehaviour
             Card dealerCard = cardManager.DealCard(false); //Get the dealer Card
                 dealerHand.Add(dealerCard); // adds card to DealerHand List
                 dealerScore = CalculateHandScore(dealerHand);
-                dealerCountText.text = dealerScore.ToString("00");
 
         }
         if (dealerScore > 21 || playerScore > dealerScore)
@@ -176,7 +169,6 @@ public class gameManager : MonoBehaviour
             Card playerCard = cardManager.DealCard(true); // get the card Dealt
             playerHand.Add(playerCard); // adds card to DealerHand List
             playerScore = CalculateHandScore(playerHand);
-            playerCountText.text = playerScore.ToString("00");
 
             if (playerScore > 21)
             {
@@ -219,8 +211,6 @@ public class gameManager : MonoBehaviour
         ClearCards(cardManager.playerArea);
         ClearCards(cardManager.dealerArea);
 
-        playerCountText.text = "00";
-        dealerCountText.text = "00";
         cashCountText.text = cash.ToString("N0");
         wagerText.text = "Wager: $" + playerWager.ToString("N0");
 
