@@ -28,6 +28,7 @@ public class CardManager : MonoBehaviour
     public Card DealCard(bool toPlayer)
     {
         CheckShuffleNeeded();
+
         if (deck.Count == 0)
         {
             return null;
