@@ -25,6 +25,32 @@ public class gameManager : MonoBehaviour
 
     bool card1 = false;
 
+    private List<Card> playerHand = new List<Card>();
+    private List<Card> dealerHand = new List<Card>();
+
+
+
+    public int CalculateHandScore(List<Card> hand)
+    {
+        int total = 0;
+        int aceCount = 0;
+
+        foreach (Card card in hand) 
+        {
+            total += card.value;
+            if (card.value == 11) aceCount++; //Count # of Aces (treated as 11 initially)
+
+        }
+        //Downgrade Ace from 11 to 1 if total is over 21
+        while (total > 21 && aceCount > 0)
+        {
+            total -= 10; // Convert one Ace from 11 to 1
+            aceCount--;
+
+        }
+
+        return total;
+    }
 
     public void onHit()
     {
@@ -36,8 +62,8 @@ public class gameManager : MonoBehaviour
             if(card1 == false) // to give 1 card to dealer
             { 
             Card dealerCard = cardManager.DealCard(false); //gets the card dealt
-            dealerScore += dealerCard.value; //The score of the dealt card
-
+             dealerHand.Add(dealerCard); // adds card to DealerHand List
+             dealerScore = CalculateHandScore(dealerHand);
             dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
             card1 = true;
             }
@@ -45,8 +71,8 @@ public class gameManager : MonoBehaviour
 
 
             Card playerCard = cardManager.DealCard(true); //gets the card dealt
-            playerScore += playerCard.value; // Score of dealt card
-
+            playerHand.Add(playerCard);
+            playerScore += CalculateHandScore(playerHand); // Score of dealt card
             playerCountText.text = "Player Count: " + playerScore.ToString("00");
 
 
@@ -77,9 +103,9 @@ public class gameManager : MonoBehaviour
             while (dealerScore < 17)
         {
             Card dealerCard = cardManager.DealCard(false); //Get the dealer Card
-            dealerScore += dealerCard.value; //The score of the dealt card
-
-            dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
+                dealerHand.Add(dealerCard); // adds card to DealerHand List
+                dealerScore = CalculateHandScore(dealerHand);
+                dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
 
         }
         if (dealerScore > 21 || playerScore > dealerScore)
@@ -120,7 +146,8 @@ public class gameManager : MonoBehaviour
             handStart = true;
 
             Card playerCard = cardManager.DealCard(true); // get the card Dealt
-            playerScore += playerCard.value;
+            playerHand.Add(playerCard); // adds card to DealerHand List
+            playerScore = CalculateHandScore(playerHand);
             playerCountText.text = "Player Count: " + playerScore.ToString("00");
 
             if (playerScore > 21)
@@ -158,6 +185,9 @@ public class gameManager : MonoBehaviour
         wagerClose = false;
         handStart = false;
         card1 = false;
+        playerHand.Clear();
+        dealerHand.Clear();
+
         playerScore = 0;
         dealerScore = 0;
         playerWager = 0;
