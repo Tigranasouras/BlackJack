@@ -24,6 +24,13 @@ public class gameManager : MonoBehaviour
     private List<Card> playerHand = new List<Card>();
     private List<Card> dealerHand = new List<Card>();
 
+    private List<Card> splitHand = new List<Card>();
+    public UnityEngine.UI.Button splitButton;
+    private bool isSplitActive = false;
+    private bool playingSecondHand = false;
+    private int splitScore = 0;
+    private int splitWager = 0;
+
 
 
     public int CalculateHandScore(List<Card> hand)
@@ -31,7 +38,7 @@ public class gameManager : MonoBehaviour
         int total = 0;
         int aceCount = 0;
 
-        foreach (Card card in hand) 
+        foreach (Card card in hand)
         {
             total += card.value;
             if (card.value == 11) aceCount++; //Count # of Aces (treated as 11 initially)
@@ -50,8 +57,8 @@ public class gameManager : MonoBehaviour
 
     public void DealInitialCards()
     {
-        if(dealerHand.Count == 0 && playerHand.Count == 0)
-            {
+        if (dealerHand.Count == 0 && playerHand.Count == 0)
+        {
             // 1st card to player
             Card playerCard1 = cardManager.DealCard(true);
             playerHand.Add(playerCard1);
@@ -73,7 +80,20 @@ public class gameManager : MonoBehaviour
             playerScore = CalculateHandScore(playerHand);
             dealerScore = CalculateHandScore(dealerHand);
 
+            //Check for player blackjack
+            if (playerScore == 21)
+            {
+                statusText.text = "Blackjack! You win!";
+                cash += Mathf.RoundToInt(playerWager * 2.5f);
+                UpdateCashText();
+                handEnd = true;
+                handStart = false;
+                wagerClose = true;
+                playerWager = 0;
+                UpdateWagerText();
+            }
         }
+        UpdateSplitButtonState();
 
     }
 
@@ -86,27 +106,48 @@ public class gameManager : MonoBehaviour
             {
                 DealInitialCards();
                 handStart = true;
+                UpdateSplitButtonState();
                 return;
             }
 
-            Card playerCard = cardManager.DealCard(true); //gets the card dealt
-            playerHand.Add(playerCard);
-            playerScore = CalculateHandScore(playerHand); // Score of dealt card
-
-
-            if (playerScore > 21)
+            if (isSplitActive && playingSecondHand)
             {
-                statusText.text = "You busted.";
-                // no need to update cash
-                UpdateCashText();
-                handEnd = true;
-                handStart = false;
-                playerWager = 0;
-                UpdateWagerText();
-
+                Card newCard = cardManager.DealCard(true);
+                splitHand.Add(newCard);
+                splitScore = CalculateHandScore(splitHand);
+                if (splitScore > 21)
+                {
+                    statusText.text = "Split hand busted!";
+                    onStand(); // Automatically end if busted
+                }
             }
+            else
+            {
+                Card newCard = cardManager.DealCard(true);
+                playerHand.Add(newCard);
+                playerScore = CalculateHandScore(playerHand);
+                if (playerScore > 21)
+                {
+                    if (isSplitActive)
+                    {
+                        statusText.text = "First hand busted. Moving to split hand.";
+                        playingSecondHand = true;
+                    }
+                    else
+                    {
+                        statusText.text = "You busted.";
+                        handEnd = true;
+                        handStart = false;
+                        playerWager = 0;
+                        UpdateWagerText();
+                        UpdateCashText();
+                    }
+                }
+            }
+
         }
-        else {
+        else
+        {
             statusText.text = "Wager or NextHand!";
         }
     }
@@ -115,38 +156,39 @@ public class gameManager : MonoBehaviour
     {
         if (handStart && wagered)
         {
-
-            if(dealerHand.Count > 0 ) //Reveal first Card
+            if (isSplitActive && !playingSecondHand)
             {
-                dealerHand[0].ShowBack(false); //Reveal the hold card
+                playingSecondHand = true;
+                statusText.text = "Playing Split Hand";
+                return;
             }
 
+            if (dealerHand.Count > 0)
+                dealerHand[0].ShowBack(false);
 
             while (dealerScore < 17)
-        {
-            Card dealerCard = cardManager.DealCard(false); //Get the dealer Card
-                dealerHand.Add(dealerCard); // adds card to DealerHand List
+            {
+                Card dealerCard = cardManager.DealCard(false);
+                dealerHand.Add(dealerCard);
                 dealerScore = CalculateHandScore(dealerHand);
+            }
 
-        }
-        if (dealerScore > 21 || playerScore > dealerScore)
-        {
-            normalWin();
-            
-        }
-        else if (playerScore < dealerScore)
-        {
-            loose();
-            
+            int winnings = 0;
+            if (playerScore <= 21)
+                winnings += CompareHands(playerScore, playerWager);
+            if (isSplitActive && splitScore <= 21)
+                winnings += CompareHands(splitScore, splitWager);
 
+            cash += winnings;
+            UpdateCashText();
+            playerWager = 0;
+            UpdateWagerText();
+            handEnd = true;
+            handStart = false;
+            isSplitActive = false;
+            playingSecondHand = false;
         }
         else
-        {
-            push();
-            
-
-        }
-      }else
         {
             statusText.text = "Wager or NextHand!";
         }
@@ -157,6 +199,32 @@ public class gameManager : MonoBehaviour
 
     public void onDouble()
     {
+        if (isSplitActive && playingSecondHand)
+        {
+            if (cash < splitWager)
+            {
+                statusText.text = "Not enough cash for split double!";
+                return;
+            }
+
+            cash -= splitWager;
+            splitWager *= 2;
+            UpdateCashText();
+            UpdateWagerText();
+
+            Card newCard = cardManager.DealCard(true);
+            splitHand.Add(newCard);
+            splitScore = CalculateHandScore(splitHand);
+
+            if (splitScore > 21)
+            {
+                statusText.text = "Split hand busted!";
+            }
+
+            onStand(); // Force stand after double
+            return;
+        }
+
         if (wagered && handStart && cash >= playerWager)
         {
             cash -= playerWager;
@@ -195,6 +263,39 @@ public class gameManager : MonoBehaviour
         }
     }
 
+    public void OnSplit()
+    {
+        if (!handStart || playerHand.Count != 2 || playerHand[0].value != playerHand[1].value || cash < playerWager)
+        {
+            statusText.text = "Can't split!";
+            return;
+        }
+
+        // Deduct wager for 2nd hand
+        cash -= playerWager;
+        splitWager = playerWager;
+        UpdateCashText();
+
+        isSplitActive = true;
+        playingSecondHand = false;
+
+        // Move second card to split hand
+        Card splitCard = playerHand[1];
+        playerHand.RemoveAt(1);
+        splitHand.Add(splitCard);
+
+        // Deal one card to each hand
+        playerHand.Add(cardManager.DealCard(true));
+        splitHand.Add(cardManager.DealCard(true));
+
+        playerScore = CalculateHandScore(playerHand);
+        splitScore = CalculateHandScore(splitHand);
+
+        statusText.text = "Playing First Hand";
+        UpdateSplitButtonState();
+
+    }
+
     public void resetGame()
     {
         handEnd = false;
@@ -203,10 +304,14 @@ public class gameManager : MonoBehaviour
         handStart = false;
         playerHand.Clear();
         dealerHand.Clear();
+        splitHand.Clear();
+
 
         playerScore = 0;
         dealerScore = 0;
         playerWager = 0;
+        splitScore = 0;
+        splitWager = 0;
 
         ClearCards(cardManager.playerArea);
         ClearCards(cardManager.dealerArea);
@@ -215,6 +320,8 @@ public class gameManager : MonoBehaviour
         wagerText.text = "Wager: $" + playerWager.ToString("N0");
 
         statusText.text = "Waiting on player!";
+        UpdateSplitButtonState();
+
     }
 
     private void push()
@@ -278,7 +385,8 @@ public class gameManager : MonoBehaviour
     {
         if (!wagerClose && cash >= amount)
         {
-            if(amount == -15){
+            if (amount == -15)
+            {
                 amount = cash;
             }
 
@@ -286,19 +394,22 @@ public class gameManager : MonoBehaviour
             cash -= amount;
             UpdateCashText();
             UpdateWagerText();
-            if (!wagered) {
+            UpdateSplitButtonState();
+
+            if (!wagered)
+            {
                 wagered = true;
                 statusText.text = "Waiting on Player!";
             }
 
 
         }
-        else if(cash < amount)
+        else if (cash < amount)
         {
             statusText.text = "Not enough Cash!";
         }
 
-        
+
     }
 
     public void AddWagerButtonAllIn()
@@ -310,13 +421,41 @@ public class gameManager : MonoBehaviour
 
     void ClearCards(Transform area)
     {
-        foreach(Transform child in area)
+        foreach (Transform child in area)
         {
             Destroy(child.gameObject);
         }
     }
 
-    
+    private int CompareHands(int score, int wagerAmount)
+    {
+        if (dealerScore > 21 || score > dealerScore)
+        {
+            statusText.text = "Hand wins!";
+            return wagerAmount * 2;
+        }
+        else if (score == dealerScore)
+        {
+            statusText.text = "Push!";
+            return wagerAmount;
+        }
+        else
+        {
+            statusText.text = "Dealer wins!";
+            return 0;
+        }
 
+    }
+
+    private void UpdateSplitButtonState()
+    {
+        bool canSplit =
+            playerHand.Count == 2 &&
+            playerHand[0].value == playerHand[1].value &&
+            cash >= playerWager &&
+            !isSplitActive;
+
+        splitButton.gameObject.SetActive(canSplit); 
+    }
 
 }

@@ -598,6 +598,7 @@ MonoBehaviour:
   cardManager: {fileID: 0}
   cashCountText: {fileID: 0}
   wagerText: {fileID: 0}
+  splitButton: {fileID: 0}
 --- !u!114 &217615121
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1911,7 +1912,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 620852853}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 620852851}
+        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
+        m_MethodName: splitButton
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &620852853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2609,6 +2622,7 @@ MonoBehaviour:
   cardManager: {fileID: 940639694}
   cashCountText: {fileID: 1134894179}
   wagerText: {fileID: 2055810060}
+  splitButton: {fileID: 620852852}
 --- !u!114 &940639694
 MonoBehaviour:
   m_ObjectHideFlags: 0

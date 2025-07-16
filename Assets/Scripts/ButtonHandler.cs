@@ -22,6 +22,11 @@ public class ButtonHandler : MonoBehaviour
         gameManager.onDouble();
     }
 
+    public void splitButton()
+    {
+        gameManager.OnSplit();
+    }
+
     public void nextHandButton()
     {
         gameManager.resetGame();
