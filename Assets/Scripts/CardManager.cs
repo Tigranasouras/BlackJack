@@ -19,22 +19,27 @@ public class CardManager : MonoBehaviour
         ShuffleDeck();
     }
 
-    public void DealCard(bool toPlayer)
+ 
+
+    public Card DealCard(bool toPlayer)
     {
         if (deck.Count == 0)
         {
-            return;
+            return null;
         }
 
         Card drawnCard = deck[0]; //first card in deck
         deck.RemoveAt(0); // remove top
-
         runningCount += drawnCard.countValue; // add to running total
         UpdateCardCountUI();
 
         GameObject cardGO = Instantiate(cardPrefab, toPlayer ? playerArea : dealerArea); // pick between player or dealer
         cardGO.GetComponent<Card>().SetCard(drawnCard.suit, drawnCard.value); // assigns value
+
+        return drawnCard; //Return the drawn card so GameManager can access its value
     }
+
+
 
     void UpdateCardCountUI()
     {

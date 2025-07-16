@@ -33,9 +33,10 @@ public class gameManager : MonoBehaviour
             wagerClose = true;
             handStart = true;
 
-            if(card1 == false){ // to give 1 card to dealer
-            cardManager.DealCard(false);
-            dealerScore += DrawRandomCardScore(); //The score of the dealt card
+            if(card1 == false) // to give 1 card to dealer
+            { 
+            Card dealerCard = cardManager.DealCard(false); //gets the card dealt
+            dealerScore += dealerCard.value; //The score of the dealt card
 
             dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
             card1 = true;
@@ -43,8 +44,8 @@ public class gameManager : MonoBehaviour
 
 
 
-            cardManager.DealCard(true);
-            playerScore += DrawRandomCardScore(); // Score of dealt card
+            Card playerCard = cardManager.DealCard(true); //gets the card dealt
+            playerScore += playerCard.value; // Score of dealt card
 
             playerCountText.text = "Player Count: " + playerScore.ToString("00");
 
@@ -75,8 +76,8 @@ public class gameManager : MonoBehaviour
 
             while (dealerScore < 17)
         {
-            cardManager.DealCard(false);
-            dealerScore += DrawRandomCardScore(); //The score of the dealt card
+            Card dealerCard = cardManager.DealCard(false); //Get the dealer Card
+            dealerScore += dealerCard.value; //The score of the dealt card
 
             dealerCountText.text = "Dealer Count: " + dealerScore.ToString("00");
 
@@ -118,8 +119,8 @@ public class gameManager : MonoBehaviour
             wagerClose = true;
             handStart = true;
 
-            cardManager.DealCard(true);
-            playerScore += DrawRandomCardScore();
+            Card playerCard = cardManager.DealCard(true); // get the card Dealt
+            playerScore += playerCard.value;
             playerCountText.text = "Player Count: " + playerScore.ToString("00");
 
             if (playerScore > 21)
@@ -148,10 +149,7 @@ public class gameManager : MonoBehaviour
     }
 
 
-    int DrawRandomCardScore()
-    {
-        return Random.Range(1, 11); // Random card dealing for testing
-    }
+    int DrawRandomCardScore() { return Random.Range(1, 11);}
 
     public void resetGame()
     {
