@@ -100,3 +100,5 @@ MonoBehaviour:
   suit: Spades
   value: 1
   countValue: 1
+  spriteRenderer: {fileID: 1194678429506719611}
+  cardSprites: []
