@@ -6,7 +6,8 @@ using UnityEngine.UI;
 public class Card : MonoBehaviour
 {
     public string suit;
-    public int value; // 1 = Ace, 11 = Jack, 12 = Queen, 13 = King
+    public int value;   // 1 = Ace, 11 = Jack, etc. (for sprite lookup)
+    public int realValue;  // Blackjack logic value: 2–10, 10 (for J/Q/K), 11 (for Aces)
     public int countValue;
     bool show;
 
@@ -22,12 +23,26 @@ public class Card : MonoBehaviour
         this.suit = suit;
         this.value = value;
 
-        //Hi-Lo card counting framework
+        //Assign BlackJack value
+        if (value == 1)
+        {
+            realValue = 11; //Ace
+        }
+        else if (value >=11 && value <= 13)
+        {
+            realValue = 10; // J,Q, K
+        }
+        else
+        {
+            realValue = value; //2-10
+        }
+
+        //Hi-Lo Card COunting
         if (value >= 2 && value <= 6)
         {
             countValue = 1;
         }
-        else if (value >= 10 || value == 1)
+        else if (realValue >= 10)
         {
             countValue = -1;
         }

@@ -2,11 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public class CardManager : MonoBehaviour
 {
     public GameObject cardPrefab; //Card visuals
-    public Transform dealerArea, playerArea, deckArea;
+    public Transform dealerArea, deckArea;
+
+    public Transform firstHandContainer;
+    public Transform splitHandContainer;
+    public enum HandType { PlayerMain, PlayerSplit, Dealer }
+
+
     public TMPro.TextMeshProUGUI cardCountText;
     
 
@@ -25,7 +32,7 @@ public class CardManager : MonoBehaviour
 
  
 
-    public Card DealCard(bool toPlayer)
+    public Card DealCard(bool faceUp, HandType handType)
     {
         CheckShuffleNeeded();
 
@@ -39,11 +46,18 @@ public class CardManager : MonoBehaviour
         runningCount += drawnCard.countValue; // add to running total
         UpdateCardCountUI();
 
-        Transform parentArea = toPlayer ? playerArea : dealerArea;
+        Transform parentArea = handType switch
+        {
+            HandType.PlayerMain => firstHandContainer,
+            HandType.PlayerSplit => splitHandContainer,
+            HandType.Dealer => dealerArea,
+            _ => deckArea
+        };
 
         GameObject cardGO = Instantiate(cardPrefab, parentArea); // set parent
         Card cardComponent = cardGO.GetComponent<Card>();
         cardComponent.SetCard(drawnCard.suit, drawnCard.value);
+        cardComponent.ShowBack(!faceUp);
         return cardComponent; //Return the drawn card so GameManager can access its value
     }
 
@@ -68,8 +82,7 @@ public class CardManager : MonoBehaviour
 
 
                     int cardValue = Mathf.Min(i, 10); // Face cards worth 10
-                    int actualValue = (i == 1) ? 11 : cardValue; //Ace = 11 by default
-
+                    int actualValue = (i == 1) ? 11 : (i >= 11 ? 10 : i); // Face cards = 10, Ace = 11, others = number
                     var cardData = new CardData(suit, actualValue);
 
                     deck.Add(cardData);

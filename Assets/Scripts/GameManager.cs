@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro.Examples;
 using Unity.VisualScripting;
 using UnityEngine;
+using static CardManager;
 
 public class gameManager : MonoBehaviour
 {
@@ -40,8 +41,8 @@ public class gameManager : MonoBehaviour
 
         foreach (Card card in hand)
         {
-            total += card.value;
-            if (card.value == 11) aceCount++; //Count # of Aces (treated as 11 initially)
+            total += card.realValue;
+            if (card.value == 1) aceCount++; //Count # of Aces (treated as 11 initially)
 
         }
         //Downgrade Ace from 11 to 1 if total is over 21
@@ -60,21 +61,21 @@ public class gameManager : MonoBehaviour
         if (dealerHand.Count == 0 && playerHand.Count == 0)
         {
             // 1st card to player
-            Card playerCard1 = cardManager.DealCard(true);
+            Card playerCard1 = cardManager.DealCard(true, HandType.PlayerMain);
             playerHand.Add(playerCard1);
 
             // 1st card to dealer - face-down
-            Card dealerCard1 = cardManager.DealCard(false);
+            Card dealerCard1 = cardManager.DealCard(false, HandType.Dealer);
             dealerCard1.ShowBack(true);
             dealerHand.Add(dealerCard1);
 
             // 2nd card to player
-            Card playerCard2 = cardManager.DealCard(true);
+            Card playerCard2 = cardManager.DealCard(true, HandType.PlayerMain);
             playerHand.Add(playerCard2);
 
             // 2nd card to dealer - face-up
-            Card dealerCard2 = cardManager.DealCard(false);
-            dealerCard2.ShowBack(false);
+            Card dealerCard2 = cardManager.DealCard(true, HandType.Dealer);
+                                            //dealerCard2.ShowBack(false);
             dealerHand.Add(dealerCard2);
 
             playerScore = CalculateHandScore(playerHand);
@@ -112,7 +113,7 @@ public class gameManager : MonoBehaviour
 
             if (isSplitActive && playingSecondHand)
             {
-                Card newCard = cardManager.DealCard(true);
+                Card newCard = cardManager.DealCard(true, HandType.PlayerSplit);
                 splitHand.Add(newCard);
                 splitScore = CalculateHandScore(splitHand);
                 if (splitScore > 21)
@@ -123,7 +124,7 @@ public class gameManager : MonoBehaviour
             }
             else
             {
-                Card newCard = cardManager.DealCard(true);
+                Card newCard = cardManager.DealCard(true, HandType.PlayerMain);
                 playerHand.Add(newCard);
                 playerScore = CalculateHandScore(playerHand);
                 if (playerScore > 21)
@@ -165,10 +166,11 @@ public class gameManager : MonoBehaviour
 
             if (dealerHand.Count > 0)
                 dealerHand[0].ShowBack(false);
+            dealerScore = CalculateHandScore(dealerHand);
 
             while (dealerScore < 17)
             {
-                Card dealerCard = cardManager.DealCard(false);
+                Card dealerCard = cardManager.DealCard(true, HandType.Dealer);
                 dealerHand.Add(dealerCard);
                 dealerScore = CalculateHandScore(dealerHand);
             }
@@ -212,7 +214,7 @@ public class gameManager : MonoBehaviour
             UpdateCashText();
             UpdateWagerText();
 
-            Card newCard = cardManager.DealCard(true);
+            Card newCard = cardManager.DealCard(true, HandType.PlayerSplit);
             splitHand.Add(newCard);
             splitScore = CalculateHandScore(splitHand);
 
@@ -234,7 +236,7 @@ public class gameManager : MonoBehaviour
             wagerClose = true;
             handStart = true;
 
-            Card playerCard = cardManager.DealCard(true); // get the card Dealt
+            Card playerCard = cardManager.DealCard(true, HandType.PlayerMain); // get the card Dealt
             playerHand.Add(playerCard); // adds card to DealerHand List
             playerScore = CalculateHandScore(playerHand);
 
@@ -265,7 +267,7 @@ public class gameManager : MonoBehaviour
 
     public void OnSplit()
     {
-        if (!handStart || playerHand.Count != 2 || playerHand[0].value != playerHand[1].value || cash < playerWager)
+        if (!handStart || playerHand.Count != 2 || playerHand[0].realValue != playerHand[1].realValue || cash < playerWager)
         {
             statusText.text = "Can't split!";
             return;
@@ -284,9 +286,13 @@ public class gameManager : MonoBehaviour
         playerHand.RemoveAt(1);
         splitHand.Add(splitCard);
 
+        // Move the card visually
+        splitCard.transform.SetParent(cardManager.splitHandContainer, worldPositionStays: false);
+
+
         // Deal one card to each hand
-        playerHand.Add(cardManager.DealCard(true));
-        splitHand.Add(cardManager.DealCard(true));
+        playerHand.Add(cardManager.DealCard(true, HandType.PlayerMain));
+        splitHand.Add(cardManager.DealCard(true, HandType.PlayerSplit));
 
         playerScore = CalculateHandScore(playerHand);
         splitScore = CalculateHandScore(splitHand);
@@ -313,8 +319,9 @@ public class gameManager : MonoBehaviour
         splitScore = 0;
         splitWager = 0;
 
-        ClearCards(cardManager.playerArea);
         ClearCards(cardManager.dealerArea);
+        ClearCards(cardManager.firstHandContainer);
+        ClearCards(cardManager.splitHandContainer);
 
         cashCountText.text = cash.ToString("N0");
         wagerText.text = "Wager: $" + playerWager.ToString("N0");
@@ -429,6 +436,7 @@ public class gameManager : MonoBehaviour
 
     private int CompareHands(int score, int wagerAmount)
     {
+        
         if (dealerScore > 21 || score > dealerScore)
         {
             statusText.text = "Hand wins!";
@@ -451,7 +459,7 @@ public class gameManager : MonoBehaviour
     {
         bool canSplit =
             playerHand.Count == 2 &&
-            playerHand[0].value == playerHand[1].value &&
+            playerHand[0].realValue == playerHand[1].realValue &&
             cash >= playerWager &&
             !isSplitActive;
 
