@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class DiagnolLayoutGroup : MonoBehaviour
 {
-    public Vector2 offset = new Vector2(30f, -30f); // X = horizontal spacing, Y = vertical spacing
+    public Vector2 offset = new Vector2(35f, -30f); // X = horizontal spacing, Y = vertical spacing
 
     void Update()
     {
