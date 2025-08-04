@@ -15,8 +15,14 @@ public class MenuHandler : MonoBehaviour
     }
     public void goToGameNoMusic()
     {
-        UnityEngine.SceneManagement.SceneManager.LoadScene("Table");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("SinglePlayer");
     }
+
+    public void goToGame2NoMusic()
+    {
+        UnityEngine.SceneManagement.SceneManager.LoadScene("MultiPlayer");
+    }
+
     private IEnumerator WaitForSoundAndTransition(string sceneName)
     {
 
@@ -26,7 +32,7 @@ public class MenuHandler : MonoBehaviour
     }
     public void goToGame()
     {
-        StartCoroutine(WaitForSoundAndTransition("Table"));
+        StartCoroutine(WaitForSoundAndTransition("SinglePlayer"));
     }
 
     public void restartGameScene()
