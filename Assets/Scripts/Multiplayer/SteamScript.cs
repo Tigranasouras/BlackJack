@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections;
-using Steamworks;
+//using Steamworks;
 
 public class SteamScript : MonoBehaviour
 {
@@ -8,8 +8,9 @@ public class SteamScript : MonoBehaviour
     {
         if (SteamManager.Initialized)
         {
-            string name = SteamFriends.GetPersonalName();
-            Debug.Log(name);
+            // string name = SteamFriends.GetPersonalName();
+            //Debug.Log(name);
+            Debug.Log("Initialized");
         }
     }
     
