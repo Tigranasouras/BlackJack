@@ -13,6 +13,10 @@ public class MenuHandler : MonoBehaviour
     {
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
     }
+    public void goToLobby()
+    {
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby");
+    }
     public void goToGameNoMusic()
     {
         UnityEngine.SceneManagement.SceneManager.LoadScene("SinglePlayer");

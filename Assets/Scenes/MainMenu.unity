@@ -1114,7 +1114,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1157443688}
         m_TargetAssemblyTypeName: MenuHandler, Assembly-CSharp
-        m_MethodName: goToGame2NoMusic
+        m_MethodName: goToLobby
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
