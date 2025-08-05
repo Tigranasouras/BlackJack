@@ -6,12 +6,7 @@ public class SteamScript : MonoBehaviour
 {
     void Start()
     {
-        if (SteamManager.Initialized)
-        {
-            // string name = SteamFriends.GetPersonalName();
-            //Debug.Log(name);
-            Debug.Log("Initialized");
-        }
+       
     }
-    
+
 }
