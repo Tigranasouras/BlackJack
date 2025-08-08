@@ -1,8 +1,8 @@
-using UnityEngine;
-using System.Collections;
+using System;
 using System.Collections.Generic;
 
-public class PlayerData : MonoBehaviour
+[Serializable]
+public class PlayerData
 {
     public string playerName;
     public bool isBot;
