@@ -17,6 +17,7 @@ public class ButtonHandler : MonoBehaviour
     {
         gameManager.onStand();
     }
+
     public void doubleButton()
     {
         gameManager.onDouble();
@@ -27,10 +28,12 @@ public class ButtonHandler : MonoBehaviour
         gameManager.OnSplit();
     }
 
+
     public void nextHandButton()
     {
         gameManager.resetGame();
     }
+
 
     public void AddWagerButton1()
     {

@@ -505,7 +505,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b06eaca8525813748989b8147f731e4f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardManager: {fileID: 0}
+  cardManager: {fileID: 940639694}
   statusText: {fileID: 1600786930}
   players: []
 --- !u!4 &102842087
@@ -2821,8 +2821,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 843759964}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: hitButton
+        m_TargetAssemblyTypeName: MultiplayerBiuttonHandler, Assembly-CSharp
+        m_MethodName: hitMButton
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2879,10 +2879,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 843759959}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
+  m_Script: {fileID: 11500000, guid: 1b9f51a1796cd4c4da80a9a61657b3b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
+  multiplayerGameManager: {fileID: 102842086}
 --- !u!1 &857889034
 GameObject:
   m_ObjectHideFlags: 0
@@ -5250,8 +5250,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1596065669}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: standButton
+        m_TargetAssemblyTypeName: MultiplayerBiuttonHandler, Assembly-CSharp
+        m_MethodName: standmButton
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5308,10 +5308,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1596065664}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
+  m_Script: {fileID: 11500000, guid: 1b9f51a1796cd4c4da80a9a61657b3b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
+  multiplayerGameManager: {fileID: 102842086}
 --- !u!1 &1600786928
 GameObject:
   m_ObjectHideFlags: 0
