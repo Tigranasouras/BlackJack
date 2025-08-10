@@ -1,28 +1,23 @@
-using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 
 public class CardManager : MonoBehaviour
 {
-    public GameObject cardPrefab; //Card visuals
-    public Transform dealerArea, deckArea;
+    [Header("Prefabs & Common Areas")]
+    public GameObject cardPrefab;
+    public Transform dealerArea;
+    public Transform deckArea;
 
-    public Transform firstHandContainer;
-    public Transform splitHandContainer;
-    public enum HandType { PlayerMain, PlayerSplit, Dealer }
+    [Header("Per-Player Areas (size = max players, e.g., 4)")]
+    public List<PlayerHandContainers> playerAreas = new List<PlayerHandContainers>();
 
+    public enum HandType { Dealer, PlayerMain, PlayerSplit }
 
     public TMPro.TextMeshProUGUI cardCountText;
-    
 
     private List<CardData> deck = new List<CardData>();
     private int runningCount = 0;
-
-    //[Range(1,8]
     public int numerOfDecks = 6;
-    
 
     void Start()
     {
@@ -30,82 +25,101 @@ public class CardManager : MonoBehaviour
         ShuffleDeck();
     }
 
- 
-
-    public Card DealCard(bool faceUp, HandType handType)
+    // --- Multiplayer-aware deal ---
+    public Card DealCardToPlayer(int playerIndex, bool faceUp, bool toSplit)
     {
         CheckShuffleNeeded();
+        if (deck.Count == 0) return null;
 
-        if (deck.Count == 0)
+        if (playerIndex < 0 || playerIndex >= playerAreas.Count)
         {
+            Debug.LogError($"DealCardToPlayer: playerIndex {playerIndex} out of range.");
             return null;
         }
 
-        CardData drawnCard = deck[0]; //first card in deck
-        deck.RemoveAt(0); // remove top
-        runningCount += drawnCard.countValue; // add to running total
-        UpdateCardCountUI();
+        var drawn = DrawTop();
+        Transform parent = toSplit ? playerAreas[playerIndex].split : playerAreas[playerIndex].main;
 
-        Transform parentArea = handType switch
-        {
-            HandType.PlayerMain => firstHandContainer,
-            HandType.PlayerSplit => splitHandContainer,
-            HandType.Dealer => dealerArea,
-            _ => deckArea
-        };
-
-        GameObject cardGO = Instantiate(cardPrefab, parentArea); // set parent
-        Card cardComponent = cardGO.GetComponent<Card>();
-        cardComponent.SetCard(drawnCard.suit, drawnCard.value);
-        cardComponent.ShowBack(!faceUp);
-        return cardComponent; //Return the drawn card so GameManager can access its value
+        return SpawnCard(drawn, parent, faceUp);
     }
 
-
-
-    void UpdateCardCountUI()
+    public Card DealCardToDealer(bool faceUp)
     {
-        cardCountText.text = "Running: " + runningCount + "\nTrue: " + GetTrueCount().ToString("0.0");
+        CheckShuffleNeeded();
+        if (deck.Count == 0) return null;
+
+        var drawn = DrawTop();
+        return SpawnCard(drawn, dealerArea, faceUp);
     }
 
-    void GenerateDeck()
+    // --- Back-compat (single player) ---
+    public Card DealCard(bool faceUp, HandType handType, int playerIndex = 0)
+    {
+        switch (handType)
+        {
+            case HandType.Dealer:
+                return DealCardToDealer(faceUp);
+            case HandType.PlayerMain:
+                return DealCardToPlayer(playerIndex, faceUp, false);
+            case HandType.PlayerSplit:
+                return DealCardToPlayer(playerIndex, faceUp, true);
+            default:
+                return null;
+        }
+    }
+
+    // --- Helpers ---
+    private CardData DrawTop()
+    {
+        CardData c = deck[0];
+        deck.RemoveAt(0);
+        runningCount += c.countValue;        // assumes CardData has countValue
+        UpdateCardCountUI();
+        return c;
+    }
+
+    private Card SpawnCard(CardData data, Transform parent, bool faceUp)
+    {
+        if (parent == null) parent = deckArea;
+
+        var go = Instantiate(cardPrefab, parent);
+        var card = go.GetComponent<Card>();
+        card.SetCard(data.suit, data.value);
+        card.ShowBack(!faceUp);
+        return card;
+    }
+
+    private void UpdateCardCountUI()
+    {
+        if (cardCountText == null) return;
+        cardCountText.text = $"Running: {runningCount}\nTrue: {GetTrueCount():0.0}";
+    }
+
+    private void GenerateDeck()
     {
         deck.Clear();
-
+        string[] suits = { "Spades", "Hearts", "Clubs", "Diamonds" };
         for (int d = 0; d < numerOfDecks; d++)
         {
-            string[] suits = { "Spades", "Hearts", "Clubs", "Diamonds" };
-            foreach(string suit in suits)
+            foreach (string suit in suits)
             {
                 for (int i = 1; i <= 13; i++)
                 {
-
-
-                    int cardValue = Mathf.Min(i, 10); // Face cards worth 10
-                    int actualValue = (i == 1) ? 11 : (i >= 11 ? 10 : i); // Face cards = 10, Ace = 11, others = number
-                    var cardData = new CardData(suit, actualValue);
-
+                    int actualValue = (i == 1) ? 11 : (i >= 11 ? 10 : i);
+                    var cardData = new CardData(suit, actualValue); // ensure CardData sets countValue
                     deck.Add(cardData);
                 }
             }
-            
         }
     }
 
-    void ShuffleDeck()
+    private void ShuffleDeck()
     {
-        for (int i = 0; i < deck.Count; i++) // thank god for algorithms
+        for (int i = 0; i < deck.Count; i++)
         {
-            CardData temp = deck[i];
-            int rand = Random.Range(i, deck.Count);
-            deck[i] = deck[rand];
-            deck[rand] = temp;
+            int r = Random.Range(i, deck.Count);
+            (deck[i], deck[r]) = (deck[r], deck[i]);
         }
-    }
-
-    public int GetRunningCount()
-    {
-        return runningCount;
     }
 
     public float GetTrueCount()
@@ -114,8 +128,7 @@ public class CardManager : MonoBehaviour
         return runningCount / decksRemaining;
     }
 
-
-    void CheckShuffleNeeded()
+    private void CheckShuffleNeeded()
     {
         float penetration = 1f - (deck.Count / (float)(numerOfDecks * 52));
         if (penetration >= 0.75f)
@@ -127,4 +140,23 @@ public class CardManager : MonoBehaviour
         }
     }
 
+    // Utility for clearing visuals
+    public void ClearDealerArea()
+    {
+        ClearChildren(dealerArea);
+    }
+    public void ClearPlayerAreas()
+    {
+        foreach (var pa in playerAreas)
+        {
+            ClearChildren(pa.main);
+            ClearChildren(pa.split);
+        }
+    }
+    private void ClearChildren(Transform t)
+    {
+        if (t == null) return;
+        for (int i = t.childCount - 1; i >= 0; i--)
+            Destroy(t.GetChild(i).gameObject);
+    }
 }
