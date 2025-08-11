@@ -205,6 +205,7 @@ GameObject:
   - component: {fileID: 64024663}
   - component: {fileID: 64024665}
   - component: {fileID: 64024664}
+  - component: {fileID: 64024666}
   m_Layer: 5
   m_Name: Player3Area
   m_TagString: Untagged
@@ -270,6 +271,31 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 64024662}
   m_CullTransparentMesh: 1
+--- !u!114 &64024666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 64024662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8eaa01c326369244fbbec0df184d98b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  seatIndex: 2
+  ownerSteamId: 0
+  isBot: 1
+  bet1: {fileID: 1204144094}
+  bet5: {fileID: 284086618}
+  bet10: {fileID: 249930075}
+  betAllIn: {fileID: 258811635}
+  hitBtn: {fileID: 843759961}
+  standBtn: {fileID: 1596065666}
+  doubleBtn: {fileID: 585493599}
+  splitBtn: {fileID: 620852852}
+  cashText: {fileID: 1134894179}
+  wagerText: {fileID: 1528703265}
 --- !u!1 &69517235
 GameObject:
   m_ObjectHideFlags: 0
@@ -486,6 +512,7 @@ GameObject:
   m_Component:
   - component: {fileID: 102842087}
   - component: {fileID: 102842086}
+  - component: {fileID: 102842088}
   m_Layer: 0
   m_Name: MultiplayerGameManager
   m_TagString: Untagged
@@ -513,6 +540,11 @@ MonoBehaviour:
   - {fileID: 1305092095}
   - {fileID: 1528703265}
   - {fileID: 739296036}
+  seatUIs:
+  - {fileID: 105215277}
+  - {fileID: 1938888534}
+  - {fileID: 64024666}
+  - {fileID: 1652363903}
 --- !u!4 &102842087
 Transform:
   m_ObjectHideFlags: 0
@@ -528,6 +560,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &102842088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 102842085}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d008e1a1d9d4494ba43cc0cd0bf6506, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  game: {fileID: 102842086}
 --- !u!1 &105215273
 GameObject:
   m_ObjectHideFlags: 0
@@ -539,6 +584,7 @@ GameObject:
   - component: {fileID: 105215274}
   - component: {fileID: 105215276}
   - component: {fileID: 105215275}
+  - component: {fileID: 105215277}
   m_Layer: 5
   m_Name: Player1Area
   m_TagString: Untagged
@@ -604,6 +650,31 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 105215273}
   m_CullTransparentMesh: 1
+--- !u!114 &105215277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 105215273}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8eaa01c326369244fbbec0df184d98b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  seatIndex: 0
+  ownerSteamId: 0
+  isBot: 0
+  bet1: {fileID: 1204144094}
+  bet5: {fileID: 284086618}
+  bet10: {fileID: 249930075}
+  betAllIn: {fileID: 258811635}
+  hitBtn: {fileID: 843759961}
+  standBtn: {fileID: 1596065666}
+  doubleBtn: {fileID: 585493599}
+  splitBtn: {fileID: 620852852}
+  cashText: {fileID: 1134894179}
+  wagerText: {fileID: 1551409272}
 --- !u!1 &123556974
 GameObject:
   m_ObjectHideFlags: 0
@@ -906,7 +977,6 @@ GameObject:
   - component: {fileID: 249930077}
   - component: {fileID: 249930076}
   - component: {fileID: 249930075}
-  - component: {fileID: 249930074}
   m_Layer: 5
   m_Name: 10WagerButton
   m_TagString: Untagged
@@ -934,19 +1004,6 @@ RectTransform:
   m_AnchoredPosition: {x: -298.99997, y: -276.4}
   m_SizeDelta: {x: 43.96, y: 25}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &249930074
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 249930072}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!114 &249930075
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -990,19 +1047,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 249930076}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 249930074}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: AddWagerButton10
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &249930076
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1053,7 +1098,6 @@ GameObject:
   - component: {fileID: 258811637}
   - component: {fileID: 258811636}
   - component: {fileID: 258811635}
-  - component: {fileID: 258811638}
   m_Layer: 5
   m_Name: allinButton
   m_TagString: Untagged
@@ -1124,19 +1168,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 258811636}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 258811638}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: AddWagerButtonAll
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &258811636
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1175,19 +1207,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 258811632}
   m_CullTransparentMesh: 1
---- !u!114 &258811638
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 258811632}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!1 &271112291
 GameObject:
   m_ObjectHideFlags: 0
@@ -1249,7 +1268,6 @@ GameObject:
   - component: {fileID: 284086620}
   - component: {fileID: 284086619}
   - component: {fileID: 284086618}
-  - component: {fileID: 284086617}
   m_Layer: 5
   m_Name: 5WagerButton
   m_TagString: Untagged
@@ -1277,19 +1295,6 @@ RectTransform:
   m_AnchoredPosition: {x: -354, y: -276.4}
   m_SizeDelta: {x: 43.96, y: 25}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &284086617
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 284086615}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!114 &284086618
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1333,19 +1338,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 284086619}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 284086617}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: AddWagerButton5
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &284086619
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2040,7 +2033,6 @@ GameObject:
   - component: {fileID: 585493601}
   - component: {fileID: 585493600}
   - component: {fileID: 585493599}
-  - component: {fileID: 585493598}
   m_Layer: 5
   m_Name: doubleButton
   m_TagString: Untagged
@@ -2068,19 +2060,6 @@ RectTransform:
   m_AnchoredPosition: {x: 430, y: -288.6}
   m_SizeDelta: {x: 65, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &585493598
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 585493596}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!114 &585493599
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2124,19 +2103,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 585493600}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 585493598}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: doubleButton
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &585493600
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2187,7 +2154,6 @@ GameObject:
   - component: {fileID: 620852854}
   - component: {fileID: 620852853}
   - component: {fileID: 620852852}
-  - component: {fileID: 620852851}
   m_Layer: 5
   m_Name: splitButton
   m_TagString: Untagged
@@ -2215,19 +2181,6 @@ RectTransform:
   m_AnchoredPosition: {x: 514.6, y: -288.6}
   m_SizeDelta: {x: 65, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &620852851
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 620852849}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!114 &620852852
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2271,19 +2224,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 620852853}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 620852851}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: splitButton
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &620852853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2470,7 +2411,6 @@ GameObject:
   - component: {fileID: 738293271}
   - component: {fileID: 738293270}
   - component: {fileID: 738293269}
-  - component: {fileID: 738293268}
   m_Layer: 5
   m_Name: nextHandButton
   m_TagString: Untagged
@@ -2498,19 +2438,6 @@ RectTransform:
   m_AnchoredPosition: {x: -498.16, y: -278.95}
   m_SizeDelta: {x: 99.23, y: 30.09}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &738293268
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 738293266}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!114 &738293269
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2554,19 +2481,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 738293270}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 738293268}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: nextHandButton
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &738293270
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2753,7 +2668,6 @@ GameObject:
   - component: {fileID: 843759963}
   - component: {fileID: 843759962}
   - component: {fileID: 843759961}
-  - component: {fileID: 843759964}
   m_Layer: 5
   m_Name: HitButton
   m_TagString: Untagged
@@ -2824,19 +2738,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 843759962}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 843759964}
-        m_TargetAssemblyTypeName: MultiplayerBiuttonHandler, Assembly-CSharp
-        m_MethodName: hitMButton
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &843759962
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2875,19 +2777,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 843759959}
   m_CullTransparentMesh: 1
---- !u!114 &843759964
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 843759959}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b9f51a1796cd4c4da80a9a61657b3b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  multiplayerGameManager: {fileID: 102842086}
 --- !u!1 &857889034
 GameObject:
   m_ObjectHideFlags: 0
@@ -3794,7 +3683,6 @@ GameObject:
   - component: {fileID: 1204144096}
   - component: {fileID: 1204144095}
   - component: {fileID: 1204144094}
-  - component: {fileID: 1204144093}
   m_Layer: 5
   m_Name: 1WagerButton
   m_TagString: Untagged
@@ -3822,19 +3710,6 @@ RectTransform:
   m_AnchoredPosition: {x: -408.99997, y: -276.4}
   m_SizeDelta: {x: 43.96, y: 25}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1204144093
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1204144091}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96d6b39e4cb82fb41b66cbb5c1b720f2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 0}
 --- !u!114 &1204144094
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3878,19 +3753,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1204144095}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1204144093}
-        m_TargetAssemblyTypeName: ButtonHandler, Assembly-CSharp
-        m_MethodName: AddWagerButton1
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &1204144095
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3968,8 +3831,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 180}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -377.34, y: 226.63}
-  m_SizeDelta: {x: 338.93, y: 52.92}
+  m_AnchoredPosition: {x: -377.34, y: 221.1}
+  m_SizeDelta: {x: 338.93, y: 63.98}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1278199163
 MonoBehaviour:
@@ -5342,7 +5205,6 @@ GameObject:
   - component: {fileID: 1596065668}
   - component: {fileID: 1596065667}
   - component: {fileID: 1596065666}
-  - component: {fileID: 1596065669}
   m_Layer: 5
   m_Name: StandButton
   m_TagString: Untagged
@@ -5414,19 +5276,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1596065667}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1596065669}
-        m_TargetAssemblyTypeName: MultiplayerBiuttonHandler, Assembly-CSharp
-        m_MethodName: standmButton
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &1596065667
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5465,19 +5315,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1596065664}
   m_CullTransparentMesh: 1
---- !u!114 &1596065669
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1596065664}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b9f51a1796cd4c4da80a9a61657b3b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  multiplayerGameManager: {fileID: 102842086}
 --- !u!1 &1600786928
 GameObject:
   m_ObjectHideFlags: 0
@@ -5512,8 +5349,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -328.21, y: 225.32}
-  m_SizeDelta: {x: 240.68, y: 50.28}
+  m_AnchoredPosition: {x: -328.21, y: 221.8}
+  m_SizeDelta: {x: 240.68, y: 57.32}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1600786930
 MonoBehaviour:
@@ -5562,8 +5399,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 25
-  m_fontSizeBase: 25
+  m_fontSize: 22
+  m_fontSizeBase: 22
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5625,6 +5462,7 @@ GameObject:
   - component: {fileID: 1652363900}
   - component: {fileID: 1652363902}
   - component: {fileID: 1652363901}
+  - component: {fileID: 1652363903}
   m_Layer: 5
   m_Name: Player4Area
   m_TagString: Untagged
@@ -5690,6 +5528,31 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1652363899}
   m_CullTransparentMesh: 1
+--- !u!114 &1652363903
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1652363899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8eaa01c326369244fbbec0df184d98b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  seatIndex: 3
+  ownerSteamId: 0
+  isBot: 1
+  bet1: {fileID: 1204144094}
+  bet5: {fileID: 284086618}
+  bet10: {fileID: 249930075}
+  betAllIn: {fileID: 258811635}
+  hitBtn: {fileID: 843759961}
+  standBtn: {fileID: 1596065666}
+  doubleBtn: {fileID: 585493599}
+  splitBtn: {fileID: 620852852}
+  cashText: {fileID: 1134894179}
+  wagerText: {fileID: 2055810060}
 --- !u!1 &1689069543
 GameObject:
   m_ObjectHideFlags: 0
@@ -6256,6 +6119,7 @@ GameObject:
   - component: {fileID: 1938888531}
   - component: {fileID: 1938888533}
   - component: {fileID: 1938888532}
+  - component: {fileID: 1938888534}
   m_Layer: 5
   m_Name: Player2Area
   m_TagString: Untagged
@@ -6321,6 +6185,31 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1938888530}
   m_CullTransparentMesh: 1
+--- !u!114 &1938888534
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1938888530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8eaa01c326369244fbbec0df184d98b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  seatIndex: 1
+  ownerSteamId: 0
+  isBot: 1
+  bet1: {fileID: 1204144094}
+  bet5: {fileID: 284086618}
+  bet10: {fileID: 249930075}
+  betAllIn: {fileID: 258811635}
+  hitBtn: {fileID: 843759961}
+  standBtn: {fileID: 1596065666}
+  doubleBtn: {fileID: 585493599}
+  splitBtn: {fileID: 620852852}
+  cashText: {fileID: 1134894179}
+  wagerText: {fileID: 1305092095}
 --- !u!1 &2001144748
 GameObject:
   m_ObjectHideFlags: 0
@@ -6729,6 +6618,10 @@ PrefabInstance:
     - target: {fileID: 5731676881760839610, guid: 6c80f8bef75b2584f8b19c85875a017a, type: 3}
       propertyPath: m_Name
       value: Exit
+      objectReference: {fileID: 0}
+    - target: {fileID: 9070921508747962940, guid: 6c80f8bef75b2584f8b19c85875a017a, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: goToMenu
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

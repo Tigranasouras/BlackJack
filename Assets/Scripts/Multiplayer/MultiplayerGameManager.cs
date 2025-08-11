@@ -1,6 +1,15 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Steamworks;
+
+
+public class SeatRuntime
+{
+    public PlayerData player;
+    public PlayerSeatUI ui;
+    public ulong ownerSteamId; // 0 for bots/offline
+}
 
 public class MultiplayerGameManager : MonoBehaviour
 {
@@ -22,22 +31,43 @@ public class MultiplayerGameManager : MonoBehaviour
 
     private int GetIndex(PlayerData p) => players.IndexOf(p);
 
+    public List<PlayerSeatUI> seatUIs = new List<PlayerSeatUI>();
+
+
     void Start()
     {
+        players.Add(new PlayerData("Player1", false, 1000000));
+        players.Add(new PlayerData("Bot1", true, 1000000));
+        players.Add(new PlayerData("Bot2", true, 1000000));
+        players.Add(new PlayerData("Bot3", true, 1000000));
+
+
         if (cardManager.playerAreas.Count < players.Count)
         {
             Debug.LogError("Not enough playerAreas set on CardManager for number of players.");
             return;
         }
 
-        players.Add(new PlayerData("Player1", false, 1000000));
-        players.Add(new PlayerData("Bot1", true, 1000000));
-        players.Add(new PlayerData("Bot2", true, 1000000));
-        players.Add(new PlayerData("Bot3", true, 1000000));
+        seats.Clear();
+        for(int i = 0; i < players.Count; i++)
+        {
+            var s = new SeatRuntime
+            {
+                player = players[i],
+                ui = seatUIs[i],
+                ownerSteamId = players[i].isBot? 0UL : SteamUser.GetSteamID().m_SteamID //local test: seat 0 is you
+            };
+            seats.Add(s);
+
+            s.ui.Init(this, i, s.ownerSteamId, players[i].isBot);
+            s.ui.UpdateMoneyUI(players[i].cash, players[i].wager);
+        }
+
 
         UpdateCashUI();
 
         statusText.text = "Waiting for wagers..";
+        SetAllBetting(true);
     }
 
     public void OnWager(PlayerData player, int amount)
@@ -51,10 +81,14 @@ public class MultiplayerGameManager : MonoBehaviour
 
             //Feedback if they're still short of the table minimum
             if (player.wager < MIN_BET)
+            {
                 statusText.text = $"{player.playerName} wagered ${amount:N0} (min ${MIN_BET:N0} to play)";
                 //Handle Player leaving table.
-            else
+            }
+            else {
                 statusText.text = $"{player.playerName} wagered ${amount:N0}";
+            }
+
             UpdateCashUI();
 
         }
@@ -68,12 +102,13 @@ public class MultiplayerGameManager : MonoBehaviour
     {
         if (roundInProgress) return; //avoid double starts
 
-        //Require at least one elgible player
-        bool anyElgible = false;
-        foreach (var p in players) if (HasMinBet(p)) {  anyElgible  |= true; break; }
-        if (!anyElgible)
+        //Require at least one eligible player
+        bool anyEligible = false;
+        foreach (var p in players) if (HasMinBet(p)) {  anyEligible  |= true; break; }
+        if (!anyEligible)
         {
             statusText.text = $"Need at least one player to wager min:  ${MIN_BET:N0}.";
+            return;
         }
 
 
@@ -107,14 +142,14 @@ public class MultiplayerGameManager : MonoBehaviour
 
         roundInProgress = true;
 
-        //Start on first elgible player with cards
+        //Start on first eligible player with cards
         currentPlayerIndex = 0;
         while (currentPlayerIndex < players.Count && (players[currentPlayerIndex].isDone || players[currentPlayerIndex].hand.Count == 0))
             currentPlayerIndex++;
         if(currentPlayerIndex >=  players.Count)
         {
-            //Edge case: somehow no one ended up elgible
-            statusText.text = $"No elgible players this round (min ${MIN_BET}.";
+            //Edge case: somehow no one ended up eligible
+            statusText.text = $"No eligible players this round (min ${MIN_BET}).";
             roundInProgress = false;
             return;
 
@@ -243,22 +278,16 @@ public class MultiplayerGameManager : MonoBehaviour
             if (score > 21)
             {
                 player.wager = 0;
-                UpdateCashUI();
-
                 continue;
             }
 
             if (dealerFinal > 21 || score > dealerFinal)
             {
                 player.cash += player.wager * 2;
-                UpdateCashUI();
-
             }
             else if (score == dealerFinal)
             {
                 player.cash += player.wager; // push
-                UpdateCashUI();
-
             }
 
             player.wager = 0;
@@ -357,5 +386,106 @@ public class MultiplayerGameManager : MonoBehaviour
     }
 
 
-    
+
+    //Multiplayer stuff
+
+
+
+    public List<SeatRuntime> seats = new(); // size = 4 in Inspector
+
+    private ulong LocalSteamId => SteamAPI.IsSteamRunning() ? SteamUser.GetSteamID().m_SteamID : 0;
+
+    private bool IsMySeat(int seatIndex, ulong caller)
+    {
+        if (seatIndex < 0 || seatIndex >= seats.Count) return false;
+        return seats[seatIndex].ownerSteamId == caller;
+    }
+
+    private bool IsCurrentTurn(int seatIndex) => seatIndex == currentPlayerIndex;
+
+    // ----- Requests from UI -----
+
+    public void RequestWager(int seatIndex, int amount, ulong callerSteamId)
+    {
+        if (roundInProgress) return;
+        if (!IsMySeat(seatIndex, callerSteamId)) return;
+
+        var p = seats[seatIndex].player;
+        if (amount == -1) amount = p.cash; // all-in
+
+        OnWager(p, amount);                          // your existing logic
+        seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
+    }
+
+    public void RequestHit(int seatIndex, ulong callerSteamId)
+    {
+        if (!roundInProgress) { StartRound(); return; }
+        if (!IsCurrentTurn(seatIndex)) return;
+        if (!IsMySeat(seatIndex, callerSteamId)) return;
+
+        // reuse your OnHit logic but target by index
+        var p = seats[seatIndex].player;
+        var c = cardManager.DealCardToPlayer(seatIndex, true, false);
+        p.hand.Add(c);
+
+        if (CalculateHandScore(p.hand) > 21) { 
+            p.isDone = true; 
+            statusText.text = $"{p.playerName} busted!";
+            NextPlayer();
+            SetTurnButtons(currentPlayerIndex);
+        }
+    }
+
+    public void RequestStand(int seatIndex, ulong callerSteamId)
+    {
+        if (!roundInProgress) return;
+        if (!IsCurrentTurn(seatIndex)) return;
+        if (!IsMySeat(seatIndex, callerSteamId)) return;
+
+        var p = seats[seatIndex].player;
+        p.isDone = true;
+        statusText.text = $"{p.playerName} stands.";
+        NextPlayer();
+        SetTurnButtons(currentPlayerIndex);
+    }
+
+    public void RequestDouble(int seatIndex, ulong callerSteamId)
+    {
+        if (!roundInProgress) return;
+        if (!IsCurrentTurn(seatIndex)) return;
+        if (!IsMySeat(seatIndex, callerSteamId)) return;
+
+        var p = seats[seatIndex].player;
+        if (p.cash >= p.wager && p.wager > 0)
+        {
+            p.cash -= p.wager; p.wager *= 2;
+            p.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false));
+            seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
+            NextPlayer(); // BJ rule: double = one card then stand
+            SetTurnButtons(currentPlayerIndex);
+        }
+    }
+
+    public void RequestSplit(int seatIndex, ulong callerSteamId)
+    {
+        // later: enforce identical ranks, enough cash, etc.
+        if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
+        // call your split flow using DealCardToPlayer(seatIndex, true, true)
+    }
+
+    private void SetAllBetting(bool enabled)
+    {
+        foreach (var s in seats)
+            s.ui.SetBettingEnabled(enabled && s.ownerSteamId != 0 && !s.player.isBot);
+    }
+
+    private void SetTurnButtons(int activeSeat)
+    {
+        for (int i = 0; i < seats.Count; i++)
+        {
+            bool myTurn = (i == activeSeat) && seats[i].ownerSteamId != 0 && !seats[i].player.isBot;
+            seats[i].ui.SetInteractable(myTurn);
+        }
+    }
+
 }
