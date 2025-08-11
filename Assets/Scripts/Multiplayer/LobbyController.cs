@@ -28,6 +28,8 @@ public class LobbyController : MonoBehaviour
     private Callback<LobbyChatUpdate_t> cbLobbyChatUpdate;
     private Callback<GameLobbyJoinRequested_t> cbGameLobbyJoinRequested;
     private Callback<LobbyDataUpdate_t> cbLobbyDataUpdate;
+
+    private LobbyBridge bridge;
     
 
     private void Awake()
@@ -38,6 +40,7 @@ public class LobbyController : MonoBehaviour
             StartCoroutine(WaitForSteamInit());
             return;
         }
+        EnsureBridge();
         InitLobbyController();
         
     }
@@ -89,6 +92,7 @@ public class LobbyController : MonoBehaviour
         }
 
         currentLobby = new CSteamID(cb.m_ulSteamIDLobby);
+        bridge.SetLobby(currentLobby);
         //Set some data so invites show a nice name
         SteamMatchmaking.SetLobbyData(currentLobby, "name", "Dealer Advantage");
         SteamMatchmaking.SetLobbyJoinable(currentLobby, true);
@@ -97,6 +101,7 @@ public class LobbyController : MonoBehaviour
     private void OnLobbyEntered(LobbyEnter_t cb)
     {
         currentLobby = new CSteamID(cb.m_ulSteamIDLobby);
+        bridge.SetLobby(currentLobby);
         if (headerText) headerText.text = "Dealer Advantage";
 
         RefreshSeatList();
@@ -146,6 +151,7 @@ public class LobbyController : MonoBehaviour
                 {
                     if (currentLobby.IsValid())
                         SteamMatchmaking.LeaveLobby(currentLobby);
+                    bridge.Clear();
                     ClearSeatsUI();
                     SetStartButtonInteractable(false);
                     if (headerText) headerText.text = "Left lobby.";
@@ -216,7 +222,7 @@ public class LobbyController : MonoBehaviour
 
         //Persist the lobby ID across scenes so your MultiplayerGameManager
         //Can assign seats based on these lobby members.
-        DontDestroyOnLoad(gameObject);
+       // I think: DontDestroyOnLoad(gameObject);
         SceneManager.LoadScene(gameSceneName);
     }
 
@@ -224,7 +230,18 @@ public class LobbyController : MonoBehaviour
     {
         if (currentLobby.IsValid())
             SteamMatchmaking.LeaveLobby(currentLobby);
-        Application.Quit();
+        bridge.Clear();
+        Application.Quit(); //Not sure about this
+    }
+
+    private void EnsureBridge()
+    {
+        bridge = LobbyBridge.Instance;
+        if (bridge == null)
+        {
+            var go = new GameObject("LobbyBridge");
+            bridge = go.AddComponent<LobbyBridge>();
+        }
     }
 
 }

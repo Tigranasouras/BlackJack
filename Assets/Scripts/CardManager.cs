@@ -25,7 +25,7 @@ public class CardManager : MonoBehaviour
         ShuffleDeck();
     }
 
-    // --- Multiplayer-aware deal ---
+    // Multiplayer-aware deal
     public Card DealCardToPlayer(int playerIndex, bool faceUp, bool toSplit)
     {
         CheckShuffleNeeded();
@@ -52,7 +52,7 @@ public class CardManager : MonoBehaviour
         return SpawnCard(drawn, dealerArea, faceUp);
     }
 
-    // --- Back-compat (single player) ---
+    // Back-compat (single player)
     public Card DealCard(bool faceUp, HandType handType, int playerIndex = 0)
     {
         switch (handType)
@@ -68,7 +68,7 @@ public class CardManager : MonoBehaviour
         }
     }
 
-    // --- Helpers ---
+    // Helpers
     private CardData DrawTop()
     {
         CardData c = deck[0];
