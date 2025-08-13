@@ -30,7 +30,19 @@ public class LobbyController : MonoBehaviour
     private Callback<LobbyDataUpdate_t> cbLobbyDataUpdate;
 
     private LobbyBridge bridge;
-    
+
+    private bool exiting = false;
+    private void UnregisterCallbacks()
+    {
+        cbLobbyCreated?.Dispose(); cbLobbyCreated = null;
+        cbLobbyEntered?.Dispose(); cbLobbyEntered = null;
+        cbLobbyChatUpdate?.Dispose(); cbLobbyChatUpdate = null;
+        cbGameLobbyJoinRequested?.Dispose(); cbGameLobbyJoinRequested = null;
+        cbLobbyDataUpdate?.Dispose(); cbLobbyDataUpdate = null;
+    }
+
+
+
 
     private void Awake()
     {
@@ -48,9 +60,8 @@ public class LobbyController : MonoBehaviour
 
     private IEnumerator WaitForSteamInit()
     {
-        while (!SteamManager.Initialized)
-            yield return null;
-
+        while (!SteamManager.Initialized) yield return null;
+        EnsureBridge();
         InitLobbyController();
     }
 
@@ -61,6 +72,7 @@ public class LobbyController : MonoBehaviour
             Debug.LogError("Steam not running. Start Steam before running the Lobby.");
             return;
         }
+        EnsureBridge();
 
         cbLobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
         cbLobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
@@ -186,7 +198,7 @@ public class LobbyController : MonoBehaviour
         for(int i = 0; i < seats.Count; i++)
         {
             var seat = seats[i];
-            if (seats == null) continue;
+            if (seat == null) continue;
 
             if (i < members.Count)
             {
@@ -215,7 +227,7 @@ public class LobbyController : MonoBehaviour
 
     private void OnStartClicked()
     {
-        if (!IsLocalOwner()) return;
+        if (!IsLocalOwner()) return; //host onlt
 
         //optional: mark lobby as "Starting" so late joiners know
         SteamMatchmaking.SetLobbyData(currentLobby, "State", "Starting");
@@ -223,16 +235,35 @@ public class LobbyController : MonoBehaviour
         //Persist the lobby ID across scenes so your MultiplayerGameManager
         //Can assign seats based on these lobby members.
        // I think: DontDestroyOnLoad(gameObject);
-        SceneManager.LoadScene(gameSceneName);
+        SceneManager.LoadScene("MultiPlayer");
     }
 
     private void OnExitClicked()
     {
-        if (currentLobby.IsValid())
-            SteamMatchmaking.LeaveLobby(currentLobby);
-        bridge.Clear();
-        Application.Quit(); //Not sure about this
+        if (exiting) return;
+        exiting = true;
+        StartCoroutine(SafeExitToMenu());   // or SafeQuitApp()
     }
+    private IEnumerator SafeExitToMenu()
+    {
+        if (SteamManager.Initialized && currentLobby.IsValid())
+        {
+            SteamMatchmaking.LeaveLobby(currentLobby);
+            currentLobby = CSteamID.Nil;
+        }
+
+        bridge?.Clear();
+        UnregisterCallbacks();
+
+        // let any in-flight callback finish this frame
+        yield return new WaitForEndOfFrame();
+
+        // go to your menu scene (recommended)
+        SceneManager.LoadScene("MainMenu");
+    }
+
+
+
 
     private void EnsureBridge()
     {
