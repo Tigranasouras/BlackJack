@@ -1,28 +1,58 @@
 using UnityEngine;
+using UnityEngine.UI;
 using Steamworks;
+using System.Collections;
 
 public class SeatAssigner : MonoBehaviour
 {
     [SerializeField] MultiplayerGameManager game;
 
-    //Call this after you have a valid lobby (on create/join/enter)
+    // Call this
     public void AssignFromLobby(CSteamID lobbyId)
+    {
+        StartCoroutine(AssignFromLobbyCo(lobbyId));
+    }
+
+    private IEnumerator AssignFromLobbyCo(CSteamID lobbyId)
     {
         if (!SteamAPI.IsSteamRunning())
         {
-            Debug.LogWarning("Steam not running; using local fallback.");
+            Debug.LogWarning("[SeatAssigner] Steam not running; using local fallback.");
             LocalSoloFallback();
-            return;
+            yield break;
         }
 
-        int memberCount = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
+        // Wait for members to be visible
+        const float timeout = 6f;
+        float t = 0f;
+        int memberCount = 0;
+
+        while (t < timeout)
+        {
+            SteamMatchmaking.RequestLobbyData(lobbyId);
+
+            try { memberCount = SteamMatchmaking.GetNumLobbyMembers(lobbyId); }
+            catch { memberCount = 0; }
+
+            if (memberCount > 0) break;
+
+            t += Time.deltaTime;
+            yield return null;
+        }
+
         if (memberCount <= 0)
         {
-            Debug.LogWarning("Lobby has no members; using local fallback.");
-            return;
+            Debug.LogWarning("[SeatAssigner] Lobby has 0 members (timed out); using local fallback.");
+            LocalSoloFallback();
+            yield break;
         }
 
-        //Assign lobby members to seats 0..N-1
+        var owner = SteamMatchmaking.GetLobbyOwner(lobbyId);
+        var me = SteamUser.GetSteamID();
+        Debug.Log($"[SeatAssigner] lobby:{lobbyId.m_SteamID} owner:{owner.m_SteamID} me:{me.m_SteamID} members:{memberCount}");
+
+
+        // Assign lobby members to seats
         int seat = 0;
         for (int i = 0; i < memberCount && seat < game.seats.Count; i++, seat++)
         {
@@ -33,41 +63,38 @@ public class SeatAssigner : MonoBehaviour
             s.player.isBot = false;
             s.player.playerName = SteamFriends.GetFriendPersonaName(member);
 
-            //Re-init the seat UI with ownership
             s.ui.Init(game, seat, s.ownerSteamId, s.player.isBot);
             s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
         }
 
-        //Fill remaining seats with bots
+        // Fill remaining seats with bots
         for (; seat < game.seats.Count; seat++)
         {
             var s = game.seats[seat];
-            s.ownerSteamId = 0; // not human
+            s.ownerSteamId = 0UL;
             s.player.isBot = true;
             if (string.IsNullOrEmpty(s.player.playerName))
-            {
                 s.player.playerName = $"Bot{seat}";
-                s.ui.Init(game, seat, s.ownerSteamId, s.player.isBot);
-                s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
-            }
-
-            //Enable betting phase UI now that ownership is correct
-            gameStatusToBetting();
+            s.ui.Init(game, seat, s.ownerSteamId, s.player.isBot);
+            s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
         }
+
+        gameStatusToBetting();
     }
 
-    //For testing without a lobby: local user on seat 0, bots elsewhere
+    // For testing without a lobby: local user on seat 0, bots elsewhere
     public void LocalSoloFallback()
     {
-        ulong me = SteamAPI.IsSteamRunning() ? SteamUser.GetSteamID().m_SteamID : 1Ul;
+        ulong me = SteamAPI.IsSteamRunning() ? SteamUser.GetSteamID().m_SteamID : 1UL;
 
         for (int i = 0; i < game.seats.Count; i++)
         {
             var s = game.seats[i];
-            bool isLocal = (1 == 0);
+            bool isLocal = (i == 0);
 
-            s.ownerSteamId = isLocal ? me : 0Ul;
+            s.ownerSteamId = isLocal ? me : 0UL;
             s.player.isBot = !isLocal;
+
             if (isLocal && string.IsNullOrEmpty(s.player.playerName))
                 s.player.playerName = SteamFriends.GetPersonaName();
             if (!isLocal && string.IsNullOrEmpty(s.player.playerName))
@@ -78,20 +105,16 @@ public class SeatAssigner : MonoBehaviour
         }
 
         gameStatusToBetting();
-
     }
 
     private void gameStatusToBetting()
     {
-        //Show "Waiting for wagers.." and enable only wager buttons for human-owned seats
-        if(game != null)
+        if (game != null)
         {
             game.statusText.text = "Waiting for wagers...";
-
-            // Public method on your manager
-            var mi = game.GetType().GetMethod("SetAllBetting", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            var mi = game.GetType().GetMethod("SetAllBetting",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
             mi?.Invoke(game, new object[] { true });
         }
     }
-
 }

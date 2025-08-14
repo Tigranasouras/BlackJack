@@ -19,6 +19,9 @@ public class GameLobbyVerifier : MonoBehaviour
     private Callback<LobbyChatUpdate_t> cbLobbyChatUpdate;
     private bool initialized;
 
+    private Callback<LobbyEnter_t> cbEnter;
+
+
     private void Awake()
     {
         StartCoroutine(Bootstrap());
@@ -67,12 +70,19 @@ public class GameLobbyVerifier : MonoBehaviour
 
         //first populate
         StartCoroutine(RefreshNow());
+
+        cbEnter = Callback<LobbyEnter_t>.Create(e => {
+            var id = new CSteamID(e.m_ulSteamIDLobby);
+            if (id == lobbyId && id.IsValid()) StartCoroutine(RefreshNow());
+        });
+
     }
 
     private void OnDestroy()
     {
         cbLobbyChatUpdate?.Dispose();
         cbLobbyChatUpdate = null;
+        cbEnter = null;
     }
 
     private void OnLobbyChatUpdate(LobbyChatUpdate_t _)
