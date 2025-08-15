@@ -16,6 +16,8 @@ public class SharedSeatControls : MonoBehaviour
     {
         mgr = manager; seatIndex = index; steamId = id;
 
+        Debug.Log($"[SharedSeaControls] BingToSeat -> seat={seatIndex}, id={steamId}");
+
         RemoveAll();
 
         if (seatIndex < 0) // no local human - keep disabled

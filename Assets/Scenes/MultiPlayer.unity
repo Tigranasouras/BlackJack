@@ -619,6 +619,7 @@ MonoBehaviour:
   - {fileID: 1305092095}
   - {fileID: 1528703265}
   - {fileID: 739296036}
+  sharedControls: {fileID: 1170702516}
 --- !u!4 &102842087
 Transform:
   m_ObjectHideFlags: 0
