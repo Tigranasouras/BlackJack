@@ -8,271 +8,167 @@ using System.Collections;
 
 public class LobbyController : MonoBehaviour
 {
-    //UI
-    public TMP_Text headerText;    //optional
-    public List<LobbySeatUI> seats; //Size = 4 in inspector
+    [Header("UI")]
+    public TMP_Text headerText;
     public Button startButton;
     public Button exitButton;
+    public Button inviteButton;
+    public LobbySeatUI[] seatRows; // 4 rows; each has name, avatar, invite/leave if you want
 
-
-    //Config
+    [Header("Config")]
     public string gameSceneName = "MultiPlayer";
-    public ELobbyType lobbyType = ELobbyType.k_ELobbyTypeFriendsOnly;
     public int maxMembers = 4;
+    public ELobbyType lobbyType = ELobbyType.k_ELobbyTypeFriendsOnly;
 
-    private CSteamID currentLobby = CSteamID.Nil;
+    // callbacks
+    Callback<LobbyMatchList_t> cbMatchList;
+    Callback<LobbyCreated_t> cbCreated;
+    Callback<LobbyEnter_t> cbEnter;
+    Callback<LobbyChatUpdate_t> cbChat;
+    Callback<GameLobbyJoinRequested_t> cbJoinReq;
+    Callback<LobbyDataUpdate_t> cbData;
 
-    //Callbacks
-    private Callback<LobbyCreated_t> cbLobbyCreated;
-    private Callback<LobbyEnter_t> cbLobbyEntered;
-    private Callback<LobbyChatUpdate_t> cbLobbyChatUpdate;
-    private Callback<GameLobbyJoinRequested_t> cbGameLobbyJoinRequested;
-    private Callback<LobbyDataUpdate_t> cbLobbyDataUpdate;
+    CSteamID current = CSteamID.Nil;
+    LobbyBridge bridge;
 
-    private LobbyBridge bridge;
-
-    private bool exiting = false;
-    private void UnregisterCallbacks()
+    void Awake()
     {
-        cbLobbyCreated?.Dispose(); cbLobbyCreated = null;
-        cbLobbyEntered?.Dispose(); cbLobbyEntered = null;
-        cbLobbyChatUpdate?.Dispose(); cbLobbyChatUpdate = null;
-        cbGameLobbyJoinRequested?.Dispose(); cbGameLobbyJoinRequested = null;
-        cbLobbyDataUpdate?.Dispose(); cbLobbyDataUpdate = null;
+        if (!SteamManager.Initialized) { Debug.LogError("Steam not initialized"); return; }
+
+        bridge = LobbyBridge.Instance ?? new GameObject("LobbyBridge").AddComponent<LobbyBridge>();
+        WireUI();
+
+        // register callbacks
+        cbMatchList = Callback<LobbyMatchList_t>.Create(OnMatchList);
+        cbCreated = Callback<LobbyCreated_t>.Create(OnCreated);
+        cbEnter = Callback<LobbyEnter_t>.Create(OnEnter);
+        cbChat = Callback<LobbyChatUpdate_t>.Create(_ => RefreshMembers());
+        cbJoinReq = Callback<GameLobbyJoinRequested_t>.Create(OnJoinRequested);
+        cbData = Callback<LobbyDataUpdate_t>.Create(_ => RefreshMembers());
     }
 
-
-
-
-    private void Awake()
+    void Start()
     {
-        if (!SteamManager.Initialized)
+        headerText?.SetText("Looking for lobby...");
+        SearchOrCreate();
+    }
+
+    void WireUI()
+    {
+        if (startButton) startButton.onClick.AddListener(OnStartGame);
+        if (exitButton) exitButton.onClick.AddListener(LeaveAndBackToMenu);
+        if (inviteButton) inviteButton.onClick.AddListener(OpenInviteOverlay);
+        SetStartEnabled(false);
+        ClearSeatUI();
+    }
+
+    void SearchOrCreate()
+    {
+        // You can add filters here:
+        // SteamMatchmaking.AddRequestLobbyListFilterSlotsAvailable(maxMembers);
+        SteamMatchmaking.AddRequestLobbyListResultCountFilter(5);
+        SteamMatchmaking.RequestLobbyList();
+    }
+
+    void OnMatchList(LobbyMatchList_t cb)
+    {
+        int n = (int)cb.m_nLobbiesMatching;
+        if (n > 0)
         {
-            Debug.LogWarning("Steam not initialized yet, delaying lobby setup...");
-            StartCoroutine(WaitForSteamInit());
-            return;
+            // Join the first one (nearest by default). You can score them.
+            var id = SteamMatchmaking.GetLobbyByIndex(0);
+            SteamMatchmaking.JoinLobby(id);
+            headerText?.SetText("Joining lobby...");
         }
-        EnsureBridge();
-        InitLobbyController();
-        
-    }
-
-
-    private IEnumerator WaitForSteamInit()
-    {
-        while (!SteamManager.Initialized) yield return null;
-        EnsureBridge();
-        InitLobbyController();
-    }
-
-    private void InitLobbyController()
-    {
-        if (!SteamAPI.IsSteamRunning())
+        else
         {
-            Debug.LogError("Steam not running. Start Steam before running the Lobby.");
-            return;
+            // Create
+            SteamMatchmaking.CreateLobby(lobbyType, maxMembers);
+            headerText?.SetText("Creating lobby...");
         }
-        EnsureBridge();
-
-        cbLobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
-        cbLobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
-        cbLobbyChatUpdate = Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
-        cbGameLobbyJoinRequested = Callback<GameLobbyJoinRequested_t>.Create(OnGameLobbyJoinRequested);
-        cbLobbyDataUpdate = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdate);
-
-        if (startButton) startButton.onClick.AddListener(OnStartClicked);
-        if (exitButton) exitButton.onClick.AddListener(OnExitClicked);
-
-        SetStartButtonInteractable(false);
-        ClearSeatsUI();
-
-        //Host Creates lobby if not already in one
-        SteamMatchmaking.CreateLobby(lobbyType, maxMembers);
-        if (headerText) headerText.text = "Creating Lobby...";
     }
 
-    private void Update() => SteamAPI.RunCallbacks();
-
-    //CallBacks
-    private void OnLobbyCreated(LobbyCreated_t cb)
+    void OnCreated(LobbyCreated_t cb)
     {
-        if(cb.m_eResult != EResult.k_EResultOK)
+        if (cb.m_eResult != EResult.k_EResultOK)
         {
-            Debug.LogError("Lobby create faild: " + cb.m_eResult);
-            if (headerText) headerText.text = "Lobby create failed.";
+            headerText?.SetText($"Lobby create failed: {cb.m_eResult}");
             return;
         }
 
-        currentLobby = new CSteamID(cb.m_ulSteamIDLobby);
-        bridge.SetLobby(currentLobby);
-        //Set some data so invites show a nice name
-        SteamMatchmaking.SetLobbyData(currentLobby, "name", "Dealer Advantage");
-        SteamMatchmaking.SetLobbyJoinable(currentLobby, true);
+        current = new CSteamID(cb.m_ulSteamIDLobby);
+        bridge.SetLobby(current);
+        SteamMatchmaking.SetLobbyJoinable(current, true);
+        SteamMatchmaking.SetLobbyData(current, "name", "Dealer Advantage");
+        SteamMatchmaking.SetLobbyData(current, "state", "lobby");
+        headerText?.SetText("Lobby created");
+        // Owner will also get OnEnter immediately after
     }
 
-    private void OnLobbyEntered(LobbyEnter_t cb)
+    void OnEnter(LobbyEnter_t cb)
     {
-        currentLobby = new CSteamID(cb.m_ulSteamIDLobby);
-        bridge.SetLobby(currentLobby);
-        if (headerText) headerText.text = "Dealer Advantage";
-
-        RefreshSeatList();
-        WireSeatButtons();
-        SetStartButtonInteractable(IsLocalOwner());
+        current = new CSteamID(cb.m_ulSteamIDLobby);
+        bridge.OnEntered(current); // mark as “we’re in”
+        headerText?.SetText("In lobby");
+        RefreshMembers();
+        SetStartEnabled(IsOwner());
     }
 
-    private void OnLobbyChatUpdate(LobbyChatUpdate_t cb)
+    void OnJoinRequested(GameLobbyJoinRequested_t cb)
     {
-        if (currentLobby.IsValid())
-            RefreshSeatList();
+        // When someone clicks a friend invite -> this will fire
+        SteamMatchmaking.JoinLobby(cb.m_steamIDLobby);
     }
 
-
-    private void OnGameLobbyJoinRequested(GameLobbyJoinRequested_t cb)
+    void RefreshMembers()
     {
-    //When users click invite, friend end up here -> join their lobby
-    SteamMatchmaking.JoinLobby(cb.m_steamIDLobby);
-    }
+        if (!current.IsValid()) return;
 
-    private void OnLobbyDataUpdate(LobbyDataUpdate_t cb)
-    {
-        //could react to "State=start" etc. if you coordinate scene loads through lobby data
-    }
+        int count = SteamMatchmaking.GetNumLobbyMembers(current);
+        var me = SteamUser.GetSteamID();
 
-    //UI Wiring
-
-    private void WireSeatButtons()
-    {
-        //Invite on each row opens the overlay for THIS lobby
-        foreach(var seat in seats)
+        for (int i = 0; i < seatRows.Length; i++)
         {
-            if(seat == null) continue;
-            if(seat.inviteButton)
+            if (i < count)
             {
-                seat.inviteButton.onClick.RemoveAllListeners();
-                seat.inviteButton.onClick.AddListener(() =>
-                {
-                    if (currentLobby.IsValid())
-                        SteamFriends.ActivateGameOverlayInviteDialog(currentLobby);
-                });
-            }
-            if(seat.leaveButton)
-            {
-                seat.leaveButton.onClick.RemoveAllListeners();
-                seat.leaveButton.onClick.AddListener(() =>
-                {
-                    if (currentLobby.IsValid())
-                        SteamMatchmaking.LeaveLobby(currentLobby);
-                    bridge.Clear();
-                    ClearSeatsUI();
-                    SetStartButtonInteractable(false);
-                    if (headerText) headerText.text = "Left lobby.";
-                });
-            }
-        }
-    }
-
-
-    private void SetStartButtonInteractable(bool enabled)
-    {
-        if (startButton) startButton.interactable = enabled;
-    }
-
-    private bool IsLocalOwner()
-    {
-        if (!currentLobby.IsValid()) return false;
-        return SteamMatchmaking.GetLobbyOwner(currentLobby) == SteamUser.GetSteamID();
-    }
-
-    //Seat population
-    private void RefreshSeatList()
-    {
-        if (!currentLobby.IsValid()) return;
-        
-        int count = SteamMatchmaking.GetNumLobbyMembers(currentLobby);
-        var members = new List<CSteamID>(count);
-        for (int i = 0; i < count; i++)
-            members.Add(SteamMatchmaking.GetLobbyMemberByIndex(currentLobby, i));
-
-        //Fill rows in order; empty the rest
-        for(int i = 0; i < seats.Count; i++)
-        {
-            var seat = seats[i];
-            if (seat == null) continue;
-
-            if (i < members.Count)
-            {
-                var id = members[i];
+                var id = SteamMatchmaking.GetLobbyMemberByIndex(current, i);
                 string name = SteamFriends.GetFriendPersonaName(id);
                 var sprite = SteamImageUtils.GetAvatarSprite(id, true);
-                bool isLocal = id == SteamUser.GetSteamID();
-                seat.SetOccupied(name, sprite, isLocal);
+                bool isLocal = id == me;
+                seatRows[i].SetOccupied(name, sprite, isLocal);
             }
-            else
-            {
-                seat.SetEmpty();
-            }
+            else seatRows[i].SetEmpty();
         }
 
-        //Only the owner can press Start
-        SetStartButtonInteractable(IsLocalOwner());
+        SetStartEnabled(IsOwner());
     }
 
-    private void ClearSeatsUI()
+    bool IsOwner()
     {
-        foreach(var s in seats) if (s) s.SetEmpty();
+        if (!current.IsValid()) return false;
+        return SteamMatchmaking.GetLobbyOwner(current) == SteamUser.GetSteamID();
     }
 
-    //Buttons
+    void SetStartEnabled(bool on) { if (startButton) startButton.interactable = on; }
+    void ClearSeatUI() { foreach (var r in seatRows) if (r) r.SetEmpty(); }
 
-    private void OnStartClicked()
+    void OpenInviteOverlay()
     {
-        if (!IsLocalOwner()) return; //host onlt
-
-        //optional: mark lobby as "Starting" so late joiners know
-        SteamMatchmaking.SetLobbyData(currentLobby, "State", "Starting");
-
-        //Persist the lobby ID across scenes so your MultiplayerGameManager
-        //Can assign seats based on these lobby members.
-       // I think: DontDestroyOnLoad(gameObject);
-        SceneManager.LoadScene("MultiPlayer");
+        if (current.IsValid())
+            SteamFriends.ActivateGameOverlayInviteDialog(current);
     }
 
-    private void OnExitClicked()
+    void OnStartGame()
     {
-        if (exiting) return;
-        exiting = true;
-        StartCoroutine(SafeExitToMenu());   // or SafeQuitApp()
+        if (!IsOwner()) return;
+        SteamMatchmaking.SetLobbyData(current, "state", "starting");
+        SceneManager.LoadScene(gameSceneName);
     }
-    private IEnumerator SafeExitToMenu()
+
+    void LeaveAndBackToMenu()
     {
-        if (SteamManager.Initialized && currentLobby.IsValid())
-        {
-            SteamMatchmaking.LeaveLobby(currentLobby);
-            currentLobby = CSteamID.Nil;
-        }
-
-        bridge?.Clear();
-        UnregisterCallbacks();
-
-        // let any in-flight callback finish this frame
-        yield return new WaitForEndOfFrame();
-
-        // go to your menu scene (recommended)
+        if (current.IsValid()) SteamMatchmaking.LeaveLobby(current);
+        bridge.Clear();
         SceneManager.LoadScene("MainMenu");
     }
-
-
-
-
-    private void EnsureBridge()
-    {
-        bridge = LobbyBridge.Instance;
-        if (bridge == null)
-        {
-            var go = new GameObject("LobbyBridge");
-            bridge = go.AddComponent<LobbyBridge>();
-        }
-    }
-
 }

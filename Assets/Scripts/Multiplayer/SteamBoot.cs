@@ -3,28 +3,27 @@ using Steamworks;
 
 public class SteamBoot : MonoBehaviour
 {
+
+    private static SteamBoot _instance;
+
     void Awake()
     {
-        try
+        if (_instance) { Destroy(gameObject); return; }
+        _instance = this; DontDestroyOnLoad(gameObject);
+
+        if (!SteamManager.Initialized)
         {
-            if (!SteamAPI.Init())
-            {
-                Debug.LogError("SteamAPI.Init() failed.");
-                return;
-            }
-            Debug.Log("Steam initialized as: " + SteamFriends.GetPersonaName());
+            Debug.LogError("Steam not initialized. Ensure steam_appid.txt and run under Steam/ overlay.");
         }
-        catch (System.DllNotFoundException e)
+        else
         {
-            Debug.LogError("Missing native Steam DLLs: " + e.Message);
+            Debug.Log($"Steam initialized as: {SteamFriends.GetPersonaName()}");
         }
+
     }
 
-    void OnDestroy()
+    private void Update()
     {
-        if (SteamAPI.IsSteamRunning())
-            SteamAPI.Shutdown();
+        if (SteamManager.Initialized) SteamAPI.RunCallbacks();
     }
-
-    void Update() => SteamAPI.RunCallbacks();
 }
