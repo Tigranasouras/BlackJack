@@ -16,7 +16,19 @@ public class LobbyBridge : MonoBehaviour
         Instance = this; DontDestroyOnLoad(gameObject);
     }
 
-    public void SetLobby(CSteamID id) => LobbyId = id;
-    public void OnEntered(CSteamID id) { LobbyId = id; Entered = id.IsValid(); }
+    public void SetLobby(CSteamID id)
+    {
+        LobbyId = id;
+        Entered = false; //Reset till we actually enter
+    }
+
+    public void MarkEntered()
+    {
+        Entered = true; // call to LobbyEnter
+    }
+
+    public int GetNumLobbyMembers()
+        => HasLobby ? SteamMatchmaking.GetNumLobbyMembers(LobbyId) : 0;
+
     public void Clear() { LobbyId = CSteamID.Nil; Entered = false; }
 }

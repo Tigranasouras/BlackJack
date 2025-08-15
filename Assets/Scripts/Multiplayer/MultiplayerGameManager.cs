@@ -37,9 +37,8 @@ public class MultiplayerGameManager : MonoBehaviour
     void Start()
     {
         players.Add(new PlayerData("Player1", false, 1000000));
-        players.Add(new PlayerData("Bot1", true, 1000000));
-        players.Add(new PlayerData("Bot2", true, 1000000));
-        players.Add(new PlayerData("Bot3", true, 1000000));
+
+
 
 
         if (cardManager.playerAreas.Count < players.Count)
