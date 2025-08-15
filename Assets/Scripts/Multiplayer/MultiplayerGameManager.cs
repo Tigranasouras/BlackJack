@@ -16,58 +16,89 @@ public class MultiplayerGameManager : MonoBehaviour
     public CardManager cardManager;
     public TMPro.TextMeshProUGUI statusText;
 
-    public List<PlayerData> players = new List<PlayerData>();
+    public List<PlayerSeatUI> seatUIs = new();
+
+    // runtime state
+    public List<PlayerData> players = new();
+    public List<SeatRuntime> seats = new();   // <— single definition
+
     private int currentPlayerIndex = 0;
-
-    private List<Card> dealerHand = new List<Card>();
+    private List<Card> dealerHand = new();
     private int dealerScore = 0;
-
-    public List<TMPro.TextMeshProUGUI> playerCashTexts = new List<TMPro.TextMeshProUGUI>();
-
+    public List<TMPro.TextMeshProUGUI> playerCashTexts = new();
     private bool roundInProgress = false;
 
     private const int MIN_BET = 25;
     private bool HasMinBet(PlayerData p) => p.wager >= MIN_BET;
-
     private int GetIndex(PlayerData p) => players.IndexOf(p);
 
-    public List<PlayerSeatUI> seatUIs = new List<PlayerSeatUI>();
+    public SharedSeatControls sharedControls;
 
 
     void Start()
     {
-        players.Add(new PlayerData("Player1", false, 1000000));
+        //Build an empty table (SeatAssigner will populate ownership/humans vs. bots)
+        BuildEmptyTable(seatUIs.Count);
+         statusText.text = "Waiting for wagers..";
+         UpdateCashUI();
 
+    }
 
-
-
-        if (cardManager.playerAreas.Count < players.Count)
-        {
-            Debug.LogError("Not enough playerAreas set on CardManager for number of players.");
-            return;
-        }
-
+    public void BuildEmptyTable(int seatCount)
+    {
+        players.Clear();
         seats.Clear();
-        for(int i = 0; i < players.Count; i++)
+
+        for (int i = 0; i < seatCount; i++)
         {
+            var p = new PlayerData($"Seat{i + 1}", true, 1_000_000); // default bot until SetSeatOwner
+            players.Add(p);
+
             var s = new SeatRuntime
             {
-                player = players[i],
+                player = p,
                 ui = seatUIs[i],
-                ownerSteamId = players[i].isBot? 0UL : SteamUser.GetSteamID().m_SteamID //local test: seat 0 is you
+                ownerSteamId = 0UL
             };
             seats.Add(s);
 
-            s.ui.Init(this, i, s.ownerSteamId, players[i].isBot);
-            s.ui.UpdateMoneyUI(players[i].cash, players[i].wager);
+            s.ui.Init(this, i, s.ownerSteamId, true);
+            s.ui.UpdateMoneyUI(p.cash, p.wager);
         }
-
-
-        UpdateCashUI();
-
-        statusText.text = "Waiting for wagers..";
-        SetAllBetting(true);
     }
+
+
+    // Called by SeatAssigner when ownership is known
+    public void SetSeatOwner(int index, ulong ownerId, string displayName, bool isBot)
+    {
+        var s = seats[index];
+        s.ownerSteamId = ownerId;
+        s.player.isBot = isBot;
+        if (!string.IsNullOrEmpty(displayName))
+            s.player.playerName = displayName;
+
+        s.ui.Init(this, index, s.ownerSteamId, s.player.isBot);
+        s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
+    }
+
+    public void BeginBettingPhase()
+    {
+        statusText.text = "Waiting for wagers...";
+        //enable wagers for local seat only
+        if (sharedControls)
+            sharedControls.SetBettingEnabled(LocalSeatIndex >= 0);
+    }
+
+    private int LocalSeatIndex
+    => seats.FindIndex(s => s.ownerSteamId == (SteamAPI.IsSteamRunning() ? SteamUser.GetSteamID().m_SteamID : 0)
+                         && !s.player.isBot);
+    
+    private void SetTurnButtons(int activeSeat)
+    {
+        if (!sharedControls) return;
+        sharedControls.SetTurnEnabled(activeSeat == LocalSeatIndex);
+    }
+
 
     public void OnWager(PlayerData player, int amount)
     {
@@ -78,18 +109,11 @@ public class MultiplayerGameManager : MonoBehaviour
             player.wager += amount;
             player.cash -= amount;
 
-            //Feedback if they're still short of the table minimum
-            if (player.wager < MIN_BET)
-            {
-                statusText.text = $"{player.playerName} wagered ${amount:N0} (min ${MIN_BET:N0} to play)";
-                //Handle Player leaving table.
-            }
-            else {
-                statusText.text = $"{player.playerName} wagered ${amount:N0}";
-            }
+            statusText.text = (player.wager < MIN_BET)
+                ? $"{player.playerName} wagered ${amount:N0} (min ${MIN_BET:N0} to play)"
+                : $"{player.playerName} wagered ${amount:N0}";
 
             UpdateCashUI();
-
         }
         else
         {
@@ -99,64 +123,46 @@ public class MultiplayerGameManager : MonoBehaviour
 
     public void StartRound()
     {
-        if (roundInProgress) return; //avoid double starts
+        if (roundInProgress) return;
 
-        //Require at least one eligible player
         bool anyEligible = false;
-        foreach (var p in players) if (HasMinBet(p)) {  anyEligible  |= true; break; }
-        if (!anyEligible)
-        {
-            statusText.text = $"Need at least one player to wager min:  ${MIN_BET:N0}.";
-            return;
-        }
+        foreach (var p in players) if (HasMinBet(p)) { anyEligible = true; break; }
+        if (!anyEligible) { statusText.text = $"Need at least one player to wager min: ${MIN_BET:N0}."; return; }
 
-
-        //clear visuals
         cardManager.ClearPlayerAreas();
         cardManager.ClearDealerArea();
 
-
-        // reset data
         foreach (var p in players) { p.hand.Clear(); p.isDone = false; }
         dealerHand.Clear(); dealerScore = 0;
 
-        // Deal only to players who met the minimum; others sit out this round
         for (int i = 0; i < players.Count; i++)
         {
             if (HasMinBet(players[i]))
             {
-                players[i].hand.Add(cardManager.DealCardToPlayer(i, true, false)); // main
-                players[i].hand.Add(cardManager.DealCardToPlayer(i, true, false)); // main
-
+                players[i].hand.Add(cardManager.DealCardToPlayer(i, true, false));
+                players[i].hand.Add(cardManager.DealCardToPlayer(i, true, false));
             }
-            else
-            {
-                players[i].isDone = true; //They won't get a turn
-            }
-            
+            else players[i].isDone = true;
         }
-        //Dealer Cards
-        dealerHand.Add(cardManager.DealCardToDealer(false)); // hole
-        dealerHand.Add(cardManager.DealCardToDealer(true));  // upcard
+
+        dealerHand.Add(cardManager.DealCardToDealer(false));
+        dealerHand.Add(cardManager.DealCardToDealer(true));
 
         roundInProgress = true;
 
-        //Start on first eligible player with cards
         currentPlayerIndex = 0;
-        while (currentPlayerIndex < players.Count && (players[currentPlayerIndex].isDone || players[currentPlayerIndex].hand.Count == 0))
+        while (currentPlayerIndex < players.Count &&
+               (players[currentPlayerIndex].isDone || players[currentPlayerIndex].hand.Count == 0))
             currentPlayerIndex++;
-        if(currentPlayerIndex >=  players.Count)
-        {
-            //Edge case: somehow no one ended up eligible
-            statusText.text = $"No eligible players this round (min ${MIN_BET}).";
-            roundInProgress = false;
-            return;
 
+        if (currentPlayerIndex >= players.Count)
+        {
+            statusText.text = $"No eligible players this round (min ${MIN_BET}).";
+            roundInProgress = false; return;
         }
 
         statusText.text = $"{players[currentPlayerIndex].playerName}'s turn!";
         StartCoroutine(HandleTurn(players[currentPlayerIndex]));
-
         UpdateCashUI();
     }
 
@@ -164,7 +170,7 @@ public class MultiplayerGameManager : MonoBehaviour
     {
         yield return new WaitForSeconds(1f);
 
-        if (player.hand.Count == 0) { NextPlayer(); yield break; } //sat out
+        if (player.hand.Count == 0) { NextPlayer(); yield break; }
 
         if (player.isBot)
         {
@@ -174,9 +180,7 @@ public class MultiplayerGameManager : MonoBehaviour
         }
         else
         {
-            //Human Wait for input (Hit/Stand buttons call OnHit/OnStand)
             statusText.text = $"{player.playerName}, choose an action!";
-
         }
     }
 
@@ -186,9 +190,7 @@ public class MultiplayerGameManager : MonoBehaviour
         if (currentPlayerIndex < 0 || currentPlayerIndex >= players.Count) return;
 
         var p = players[currentPlayerIndex];
-        int idx = currentPlayerIndex;
-
-        Card c = cardManager.DealCardToPlayer(idx, true, false);
+        var c = cardManager.DealCardToPlayer(currentPlayerIndex, true, false);
         p.hand.Add(c);
 
         if (CalculateHandScore(p.hand) > 21)
@@ -201,7 +203,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
     public void OnStand()
     {
-        if (!roundInProgress) return; //prevent early Stand causing DealerTurn()
+        if (!roundInProgress) return;
         if (currentPlayerIndex < 0 || currentPlayerIndex >= players.Count) return;
 
         var player = players[currentPlayerIndex];
@@ -214,40 +216,27 @@ public class MultiplayerGameManager : MonoBehaviour
     {
         currentPlayerIndex++;
 
-
-        //Skip Players that might be already done (bots can set isDone)
         while (currentPlayerIndex < players.Count &&
-          (players[currentPlayerIndex].isDone || players[currentPlayerIndex].hand.Count == 0))
+               (players[currentPlayerIndex].isDone || players[currentPlayerIndex].hand.Count == 0))
             currentPlayerIndex++;
 
         if (currentPlayerIndex >= players.Count)
         {
-            if (roundInProgress && dealerHand.Count >= 1) // must have at least the hole card
-            {
+            if (roundInProgress && dealerHand.Count >= 1)
                 StartCoroutine(DealerTurn());
-            }
             else
-            {
                 Debug.LogWarning("Tried to start DealerTurn without a valid dealer hand.");
-            }
         }
         else
         {
             StartCoroutine(HandleTurn(players[currentPlayerIndex]));
         }
-
     }
 
     private IEnumerator DealerTurn()
     {
+        if (dealerHand.Count == 0) { Debug.LogError("DealerTurn called with empty dealerHand."); yield break; }
 
-        if(dealerHand.Count == 0)
-        {
-            Debug.LogError("DealerTurn called with empty dealerHand.");
-            yield break;
-        }
-
-        //Reveal hole card safely
         dealerHand[0].ShowBack(false);
         dealerScore = CalculateHandScore(dealerHand);
 
@@ -271,67 +260,42 @@ public class MultiplayerGameManager : MonoBehaviour
 
         foreach (var player in players)
         {
-
-            if (player.hand.Count == 0) { player.wager = 0; continue; } // sat out
+            if (player.hand.Count == 0) { player.wager = 0; continue; }
             int score = CalculateHandScore(player.hand);
-            if (score > 21)
-            {
-                player.wager = 0;
-                continue;
-            }
+            if (score > 21) { player.wager = 0; continue; }
 
-            if (dealerFinal > 21 || score > dealerFinal)
-            {
-                player.cash += player.wager * 2;
-            }
-            else if (score == dealerFinal)
-            {
-                player.cash += player.wager; // push
-            }
+            if (dealerFinal > 21 || score > dealerFinal) player.cash += player.wager * 2;
+            else if (score == dealerFinal) player.cash += player.wager;
 
             player.wager = 0;
         }
     }
 
-
     private int CalculateHandScore(List<Card> hand)
     {
-        int total = 0;
-        int aceCount = 0;
-        foreach(Card c in hand)
-        {
-            total += c.realValue;
-            if (c.value == 1) aceCount++;
-        }
-        while (total > 21 && aceCount >0)
-        {
-            total -= 10;
-            aceCount--;
-        }
+        int total = 0, ace = 0;
+        foreach (var c in hand) { total += c.realValue; if (c.value == 1) ace++; }
+        while (total > 21 && ace > 0) { total -= 10; ace--; }
         return total;
     }
 
     private void UpdateCashUI()
     {
-        for(int i = 0; i < players.Count && i < playerCashTexts.Count; i++)
-        {
+        for (int i = 0; i < players.Count && i < playerCashTexts.Count; i++)
             playerCashTexts[i].text = $"{players[i].playerName}: ${players[i].cash:N0}";
-        }
     }
-
 
     private IEnumerator BotTurn(PlayerData bot, int seatIndex)
     {
         statusText.text = $"{bot.playerName} thinking...";
         yield return new WaitForSeconds(1f);
 
-        int dealerUpCardValue = (dealerHand.Count >= 2) ? dealerHand[1].realValue : 10;
+        int dealerUp = (dealerHand.Count >= 2) ? dealerHand[1].realValue : 10;
         bool done = false;
 
         while (!done)
         {
-            BotAction action = GetBotDecision(bot.hand, dealerUpCardValue);
-            switch (action)
+            switch (GetBotDecision(bot.hand, dealerUp))
             {
                 case BotAction.Hit:
                     bot.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false));
@@ -353,15 +317,13 @@ public class MultiplayerGameManager : MonoBehaviour
                     break;
 
                 case BotAction.Split:
-                    // later: use DealCardToPlayer(seatIndex, true, true) for split
-                    done = true;
+                    done = true; // TODO later
                     break;
             }
             yield return new WaitForSeconds(1f);
         }
         bot.isDone = true;
     }
-
 
     private enum BotAction { Hit, Stand, Double, Split }
     private BotAction GetBotDecision(List<Card> hand, int dealerUpCardValue)
@@ -375,34 +337,19 @@ public class MultiplayerGameManager : MonoBehaviour
             if (score == 18 && dealerUpCardValue >= 9) return BotAction.Hit;
             return BotAction.Stand;
         }
-
         if (score >= 17) return BotAction.Stand;
         if (score >= 13 && dealerUpCardValue <= 6) return BotAction.Stand;
-        if (score == 12 && dealerUpCardValue >= 4 && dealerUpCardValue <= 6) return BotAction.Stand;
+        if (score == 12 && dealerUpCardValue is >= 4 and <= 6) return BotAction.Stand;
         if (score >= 10) return BotAction.Double;
-
         return BotAction.Hit;
     }
 
-
-
-    //Multiplayer stuff
-
-
-
-    public List<SeatRuntime> seats = new(); // size = 4 in Inspector
-
-    private ulong LocalSteamId => SteamAPI.IsSteamRunning() ? SteamUser.GetSteamID().m_SteamID : 0;
+    // ---- Requests from UI (ownership/turn checks) ----
 
     private bool IsMySeat(int seatIndex, ulong caller)
-    {
-        if (seatIndex < 0 || seatIndex >= seats.Count) return false;
-        return seats[seatIndex].ownerSteamId == caller;
-    }
+        => seatIndex >= 0 && seatIndex < seats.Count && seats[seatIndex].ownerSteamId == caller;
 
     private bool IsCurrentTurn(int seatIndex) => seatIndex == currentPlayerIndex;
-
-    // ----- Requests from UI -----
 
     public void RequestWager(int seatIndex, int amount, ulong callerSteamId)
     {
@@ -411,8 +358,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
         var p = seats[seatIndex].player;
         if (amount == -1) amount = p.cash; // all-in
-
-        OnWager(p, amount);                          // your existing logic
+        OnWager(p, amount);
         seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
     }
 
@@ -422,13 +368,13 @@ public class MultiplayerGameManager : MonoBehaviour
         if (!IsCurrentTurn(seatIndex)) return;
         if (!IsMySeat(seatIndex, callerSteamId)) return;
 
-        // reuse your OnHit logic but target by index
         var p = seats[seatIndex].player;
         var c = cardManager.DealCardToPlayer(seatIndex, true, false);
         p.hand.Add(c);
 
-        if (CalculateHandScore(p.hand) > 21) { 
-            p.isDone = true; 
+        if (CalculateHandScore(p.hand) > 21)
+        {
+            p.isDone = true;
             statusText.text = $"{p.playerName} busted!";
             NextPlayer();
             SetTurnButtons(currentPlayerIndex);
@@ -460,31 +406,14 @@ public class MultiplayerGameManager : MonoBehaviour
             p.cash -= p.wager; p.wager *= 2;
             p.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false));
             seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
-            NextPlayer(); // BJ rule: double = one card then stand
+            NextPlayer();
             SetTurnButtons(currentPlayerIndex);
         }
     }
 
     public void RequestSplit(int seatIndex, ulong callerSteamId)
     {
-        // later: enforce identical ranks, enough cash, etc.
         if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
-        // call your split flow using DealCardToPlayer(seatIndex, true, true)
+        // TODO: split flow
     }
-
-    private void SetAllBetting(bool enabled)
-    {
-        foreach (var s in seats)
-            s.ui.SetBettingEnabled(enabled && s.ownerSteamId != 0 && !s.player.isBot);
-    }
-
-    private void SetTurnButtons(int activeSeat)
-    {
-        for (int i = 0; i < seats.Count; i++)
-        {
-            bool myTurn = (i == activeSeat) && seats[i].ownerSteamId != 0 && !seats[i].player.isBot;
-            seats[i].ui.SetInteractable(myTurn);
-        }
-    }
-
 }

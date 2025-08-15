@@ -608,17 +608,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cardManager: {fileID: 940639694}
   statusText: {fileID: 1600786930}
+  seatUIs:
+  - {fileID: 105215277}
+  - {fileID: 1938888534}
+  - {fileID: 64024666}
+  - {fileID: 1652363903}
   players: []
   playerCashTexts:
   - {fileID: 1551409272}
   - {fileID: 1305092095}
   - {fileID: 1528703265}
   - {fileID: 739296036}
-  seatUIs:
-  - {fileID: 105215277}
-  - {fileID: 1938888534}
-  - {fileID: 64024666}
-  - {fileID: 1652363903}
 --- !u!4 &102842087
 Transform:
   m_ObjectHideFlags: 0
@@ -2735,7 +2735,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Player4: $999,999,999'
+  m_text: 'Bet: $0'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -3600,6 +3600,58 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1134894177}
   m_CullTransparentMesh: 1
+--- !u!1 &1170702515
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1170702517}
+  - component: {fileID: 1170702516}
+  m_Layer: 0
+  m_Name: SharedSeatControls
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1170702516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1170702515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d96e70f3fe150649a0977542d47dfdc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bet1: {fileID: 1204144094}
+  bet5: {fileID: 284086618}
+  bet10: {fileID: 249930075}
+  betAllIn: {fileID: 258811635}
+  hitBtn: {fileID: 843759961}
+  standBtn: {fileID: 1596065666}
+  doubleBtn: {fileID: 585493599}
+  splitBtn: {fileID: 620852852}
+--- !u!4 &1170702517
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1170702515}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.9611446, y: -1.7507598, z: 0.21221086}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1187610148
 GameObject:
   m_ObjectHideFlags: 0
@@ -4009,7 +4061,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Player2: $999,999,999'
+  m_text: 'Bet: $0'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -4844,7 +4896,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Player3: $999,999,999'
+  m_text: 'Bet: $0'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -4980,7 +5032,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Player1: $999,999,999'
+  m_text: 'Bet: $0'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5516,7 +5568,7 @@ MonoBehaviour:
   doubleBtn: {fileID: 585493599}
   splitBtn: {fileID: 620852852}
   cashText: {fileID: 1134894179}
-  wagerText: {fileID: 2055810060}
+  wagerText: {fileID: 739296036}
 --- !u!1 &1689069543
 GameObject:
   m_ObjectHideFlags: 0
@@ -6841,3 +6893,4 @@ SceneRoots:
   - {fileID: 1741785863}
   - {fileID: 181996445}
   - {fileID: 2046615830}
+  - {fileID: 1170702517}

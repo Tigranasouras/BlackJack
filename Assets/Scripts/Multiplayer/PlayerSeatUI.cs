@@ -27,36 +27,11 @@ public class PlayerSeatUI : MonoBehaviour
         ownerSteamId = steamID;
         isBot = bot;
 
-        //Wager Buttons
-        bet1.onClick.AddListener(() => mgr.RequestWager(seatIndex, 1, ownerSteamId));
-        bet5.onClick.AddListener(() => mgr.RequestWager(seatIndex, 5, ownerSteamId));
-        bet10.onClick.AddListener(() => mgr.RequestWager(seatIndex, 10, ownerSteamId));
-        betAllIn.onClick.AddListener(() => mgr.RequestWager(seatIndex, -1, ownerSteamId)); // -1 = all in
-
-        //Action buttons
-        hitBtn.onClick.AddListener(() => mgr.RequestHit(seatIndex,ownerSteamId));
-        standBtn.onClick.AddListener(() => mgr.RequestStand(seatIndex, ownerSteamId));
-        doubleBtn.onClick.AddListener(() => mgr.RequestDouble(seatIndex, ownerSteamId));
-        splitBtn.onClick.AddListener(() => mgr.RequestSplit(seatIndex, ownerSteamId));
+        //if this seat doesn't belong to human, don't wire wager buttons
+        bool isHuman = ownerSteamId != 0 && !isBot;
 
     }
 
-    public void SetInteractable (bool enabled)
-    {
-        //Action buttons (during turn)
-        hitBtn.interactable = enabled;
-        standBtn.interactable = enabled;
-        doubleBtn.interactable = enabled;
-        splitBtn.interactable = enabled;
-    }
-
-    public void SetBettingEnabled(bool enabled)
-    {
-        bet1.interactable = enabled;
-        bet5.interactable = enabled;
-        bet10.interactable = enabled;
-        betAllIn.interactable = enabled;
-    }
 
     public void UpdateMoneyUI(int cash, int wager)
     {
