@@ -34,6 +34,8 @@ public class MultiplayerGameManager : MonoBehaviour
 
     public SharedSeatControls sharedControls;
 
+    public TMPro.TextMeshProUGUI localCashBig;
+
 
     void Start()
     {
@@ -279,10 +281,20 @@ public class MultiplayerGameManager : MonoBehaviour
         return total;
     }
 
+    private void UpdateLocalCashBig()
+    {
+        if (!localCashBig) return;
+        int idx = LocalSeatIndex;
+        localCashBig.text = (idx >= 0) ? $"{players[idx].cash:N0}" : "-";
+    }
+
+
     private void UpdateCashUI()
     {
         for (int i = 0; i < players.Count && i < playerCashTexts.Count; i++)
             playerCashTexts[i].text = $"{players[i].playerName}: ${players[i].cash:N0}";
+
+        UpdateLocalCashBig();
     }
 
     private IEnumerator BotTurn(PlayerData bot, int seatIndex)
