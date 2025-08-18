@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -67,4 +68,15 @@ public class SharedSeatControls : MonoBehaviour
         if (doubleBtn) doubleBtn.onClick.RemoveAllListeners();
         if (splitBtn) splitBtn.onClick.RemoveAllListeners();
     }
+
+    public void SetSplitVisible(bool on)
+    {
+        if (splitBtn) splitBtn.gameObject.SetActive(on);
+    }
+
+    public void SetSplitInteractable(bool on)
+    {
+        if (splitBtn) splitBtn.interactable = on;
+    }
+
 }

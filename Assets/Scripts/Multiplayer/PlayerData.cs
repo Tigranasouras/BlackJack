@@ -10,6 +10,10 @@ public class PlayerData
     public int wager;
     public List<Card> hand = new List<Card>();
     public bool isDone;
+    public List<Card> splitHand = new List<Card>();
+    public bool hasSplit = false;
+    public bool playingSplit = false;
+    public int splitWager = 0; 
 
     public PlayerData(string name, bool bot, int startingCash)
     {

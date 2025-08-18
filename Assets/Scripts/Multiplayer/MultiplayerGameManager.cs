@@ -94,6 +94,9 @@ public class MultiplayerGameManager : MonoBehaviour
     private int LocalSeatIndex
     => seats.FindIndex(s => s.ownerSteamId == (SteamAPI.IsSteamRunning() ? SteamUser.GetSteamID().m_SteamID : 0)
                          && !s.player.isBot);
+
+    private List<Card> ActiveHand(PlayerData p)
+        => (p.hasSplit && p.playingSplit) ? p.splitHand : p.hand;
     
     private void SetTurnButtons(int activeSeat)
     {
@@ -134,7 +137,16 @@ public class MultiplayerGameManager : MonoBehaviour
         cardManager.ClearPlayerAreas();
         cardManager.ClearDealerArea();
 
-        foreach (var p in players) { p.hand.Clear(); p.isDone = false; }
+        foreach (var p in players) {
+            p.hand.Clear();
+            p.splitHand.Clear();
+            p.hasSplit = false;
+            p.playingSplit = false;
+            p.splitWager = 0;
+            p.isDone = false;
+        
+        }
+
         dealerHand.Clear(); dealerScore = 0;
 
         for (int i = 0; i < players.Count; i++)
@@ -152,6 +164,8 @@ public class MultiplayerGameManager : MonoBehaviour
 
         roundInProgress = true;
 
+        if (sharedControls) sharedControls.SetBettingEnabled(false); //lock wagers during the hand
+
         currentPlayerIndex = 0;
         while (currentPlayerIndex < players.Count &&
                (players[currentPlayerIndex].isDone || players[currentPlayerIndex].hand.Count == 0))
@@ -166,6 +180,7 @@ public class MultiplayerGameManager : MonoBehaviour
         statusText.text = $"{players[currentPlayerIndex].playerName}'s turn!";
         StartCoroutine(HandleTurn(players[currentPlayerIndex]));
         UpdateCashUI();
+        UpdateTurnControls();
     }
 
     private IEnumerator HandleTurn(PlayerData player)
@@ -183,6 +198,8 @@ public class MultiplayerGameManager : MonoBehaviour
         else
         {
             statusText.text = $"{player.playerName}, choose an action!";
+            UpdateTurnControls();
+
         }
     }
 
@@ -214,6 +231,32 @@ public class MultiplayerGameManager : MonoBehaviour
         NextPlayer();
     }
 
+    private bool CanSplit(PlayerData p)
+    {
+        //two cards, same rank, and enough cash to match the wager
+        if (p.hand.Count != 2) return false;
+        
+        bool sameRank = p.hand[0].value == p.hand[1].value;
+        return sameRank && p.wager > 0 && p.cash >= p.wager; // >= (not >)
+    }
+
+    private void UpdateTurnControls()
+    {
+        if (!sharedControls) return;
+        int local = LocalSeatIndex;
+        bool myTurn = (currentPlayerIndex == local) && roundInProgress;
+
+        sharedControls.SetTurnEnabled(myTurn);
+
+        //toggle split visibility / interactability when its your turn
+        bool showSplit = false;
+        if (myTurn && local >= 0 && local < seats.Count)
+            showSplit = CanSplit(seats[local].player);
+
+        sharedControls.SetSplitVisible(showSplit);
+        sharedControls.SetSplitInteractable(showSplit);   //clickable only if legal
+    }
+
     private void NextPlayer()
     {
         currentPlayerIndex++;
@@ -232,6 +275,15 @@ public class MultiplayerGameManager : MonoBehaviour
         else
         {
             StartCoroutine(HandleTurn(players[currentPlayerIndex]));
+        }
+    }
+
+
+    public void OnNextHandButton()
+    {
+        if (roundInProgress) return; //Don't allow during a hand
+        {
+            StartRound(); // StartRound already enforces MIN_BET
         }
     }
 
@@ -254,22 +306,38 @@ public class MultiplayerGameManager : MonoBehaviour
 
         roundInProgress = false;
         statusText.text = "Round over. Place wagers!";
+        BeginBettingPhase(); //re-enable local betting UI
+    }
+
+    private int PayoutFor(List<Card> hand, int wager, int dealerFinal)
+    {
+        if (hand.Count == 0) return 0;
+        int score = CalculateHandScore(hand);
+        if (score > 21) return 0;
+        if (dealerFinal > 21 || score > dealerFinal) return wager * 2;
+        if (score == dealerFinal) return wager;   // push
+        return 0;
     }
 
     private void ResolveBets()
     {
         int dealerFinal = CalculateHandScore(dealerHand);
 
-        foreach (var player in players)
+        foreach (var p in players)
         {
-            if (player.hand.Count == 0) { player.wager = 0; continue; }
-            int score = CalculateHandScore(player.hand);
-            if (score > 21) { player.wager = 0; continue; }
+            // main hand
+            p.cash += PayoutFor(p.hand, p.wager, dealerFinal);
 
-            if (dealerFinal > 21 || score > dealerFinal) player.cash += player.wager * 2;
-            else if (score == dealerFinal) player.cash += player.wager;
+            // split hand (if any)
+            if (p.hasSplit)
+                p.cash += PayoutFor(p.splitHand, p.splitWager, dealerFinal);
 
-            player.wager = 0;
+            // reset wagers and split state for next round
+            p.wager = 0;
+            p.splitWager = 0;
+            p.hasSplit = false;
+            p.playingSplit = false;
+            p.splitHand.Clear();
         }
     }
 
@@ -377,55 +445,114 @@ public class MultiplayerGameManager : MonoBehaviour
     public void RequestHit(int seatIndex, ulong callerSteamId)
     {
         if (!roundInProgress) { StartRound(); return; }
-        if (!IsCurrentTurn(seatIndex)) return;
-        if (!IsMySeat(seatIndex, callerSteamId)) return;
+        if (!IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
-        var c = cardManager.DealCardToPlayer(seatIndex, true, false);
-        p.hand.Add(c);
+        bool onSplit = (p.hasSplit && p.playingSplit);
+        var hand = ActiveHand(p);
 
-        if (CalculateHandScore(p.hand) > 21)
+        var c = cardManager.DealCardToPlayer(seatIndex, true, onSplit);
+        hand.Add(c);
+
+        if (CalculateHandScore(hand) > 21)
         {
-            p.isDone = true;
             statusText.text = $"{p.playerName} busted!";
+            // If they still have another hand to play (after main), switch to it
+            if (p.hasSplit && !p.playingSplit)
+            {
+                p.playingSplit = true;
+                statusText.text = $"{p.playerName} — play your split hand!";
+                UpdateTurnControls();
+                return;
+            }
+            p.isDone = true;
             NextPlayer();
-            SetTurnButtons(currentPlayerIndex);
         }
+        UpdateTurnControls();
     }
 
     public void RequestStand(int seatIndex, ulong callerSteamId)
     {
-        if (!roundInProgress) return;
-        if (!IsCurrentTurn(seatIndex)) return;
-        if (!IsMySeat(seatIndex, callerSteamId)) return;
+        if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
+
+        // Finished main? move to split; otherwise end turn
+        if (p.hasSplit && !p.playingSplit)
+        {
+            p.playingSplit = true;
+            statusText.text = $"{p.playerName} — play your split hand!";
+            UpdateTurnControls();
+            return;
+        }
+
         p.isDone = true;
         statusText.text = $"{p.playerName} stands.";
         NextPlayer();
-        SetTurnButtons(currentPlayerIndex);
+        UpdateTurnControls();
     }
 
     public void RequestDouble(int seatIndex, ulong callerSteamId)
     {
-        if (!roundInProgress) return;
-        if (!IsCurrentTurn(seatIndex)) return;
-        if (!IsMySeat(seatIndex, callerSteamId)) return;
+        if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
-        if (p.cash >= p.wager && p.wager > 0)
+        bool onSplit = (p.hasSplit && p.playingSplit);
+        var hand = ActiveHand(p);
+
+        int wagerForThisHand = onSplit ? p.splitWager : p.wager;
+        if (p.cash >= wagerForThisHand && wagerForThisHand > 0)
         {
-            p.cash -= p.wager; p.wager *= 2;
-            p.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false));
-            seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
+            p.cash -= wagerForThisHand;
+            if (onSplit) p.splitWager *= 2; else p.wager *= 2;
+
+            var c = cardManager.DealCardToPlayer(seatIndex, true, onSplit);
+            hand.Add(c);
+
+            // Double = one card then stand
+            if (p.hasSplit && !p.playingSplit)
+            {
+                p.playingSplit = true;
+                statusText.text = $"{p.playerName} — play your split hand!";
+                UpdateTurnControls();
+                return;
+            }
+
+            p.isDone = true;
             NextPlayer();
-            SetTurnButtons(currentPlayerIndex);
         }
+        UpdateCashUI();
+        UpdateTurnControls();
     }
 
     public void RequestSplit(int seatIndex, ulong callerSteamId)
     {
         if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
-        // TODO: split flow
+
+        var p = seats[seatIndex].player;
+        if (!CanSplit(p)) return;
+
+        // Pay the second bet
+        p.cash -= p.wager;
+        p.splitWager = p.wager;
+
+        // Move second card to split hand
+        var moved = p.hand[1];
+        p.hand.RemoveAt(1);
+        p.splitHand.Clear();
+        p.splitHand.Add(moved);
+
+        // Mark split state
+        p.hasSplit = true;
+        p.playingSplit = false; // start by continuing on the original hand
+
+        // Deal one card to each hand
+        p.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false)); // main hand
+        p.splitHand.Add(cardManager.DealCardToPlayer(seatIndex, true, true)); // split hand (visual lane)
+
+        statusText.text = $"{p.playerName} splits.";
+        seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);   // show cash/wager changes
+        UpdateCashUI();
+        UpdateTurnControls();                                 // Split button visibility etc.
     }
 }
