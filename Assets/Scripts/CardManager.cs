@@ -78,6 +78,17 @@ public class CardManager : MonoBehaviour
         return c;
     }
 
+    public void MoveCardBetweenHands(int playerIndex, Card card, bool toSplit)
+    {
+        if (playerIndex < 0 || playerIndex >= playerAreas.Count || card == null) return;
+        Transform dst = toSplit ? playerAreas[playerIndex].split : playerAreas[playerIndex].main;
+
+        //reparent the existing card so it visually moves to the other lane
+        card.transform.SetParent(dst, false);
+        card.transform.SetAsLastSibling(); //keeps draw order nice
+
+    }
+
     private Card SpawnCard(CardData data, Transform parent, bool faceUp)
     {
         if (parent == null) parent = deckArea;

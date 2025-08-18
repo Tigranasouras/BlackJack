@@ -41,8 +41,8 @@ public class MultiplayerGameManager : MonoBehaviour
     {
         //Build an empty table (SeatAssigner will populate ownership/humans vs. bots)
         BuildEmptyTable(seatUIs.Count);
-         statusText.text = "Waiting for wagers..";
-         UpdateCashUI();
+        statusText.text = "Waiting for wagers..";
+        UpdateCashUI();
 
     }
 
@@ -97,7 +97,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
     private List<Card> ActiveHand(PlayerData p)
         => (p.hasSplit && p.playingSplit) ? p.splitHand : p.hand;
-    
+
     private void SetTurnButtons(int activeSeat)
     {
         if (!sharedControls) return;
@@ -137,14 +137,15 @@ public class MultiplayerGameManager : MonoBehaviour
         cardManager.ClearPlayerAreas();
         cardManager.ClearDealerArea();
 
-        foreach (var p in players) {
+        foreach (var p in players)
+        {
             p.hand.Clear();
             p.splitHand.Clear();
             p.hasSplit = false;
             p.playingSplit = false;
             p.splitWager = 0;
             p.isDone = false;
-        
+
         }
 
         dealerHand.Clear(); dealerScore = 0;
@@ -233,9 +234,12 @@ public class MultiplayerGameManager : MonoBehaviour
 
     private bool CanSplit(PlayerData p)
     {
+        //one split max
+        if (p.hasSplit) return false;
+
         //two cards, same rank, and enough cash to match the wager
         if (p.hand.Count != 2) return false;
-        
+
         bool sameRank = p.hand[0].value == p.hand[1].value;
         return sameRank && p.wager > 0 && p.cash >= p.wager; // >= (not >)
     }
@@ -244,8 +248,7 @@ public class MultiplayerGameManager : MonoBehaviour
     {
         if (!sharedControls) return;
         int local = LocalSeatIndex;
-        bool myTurn = (currentPlayerIndex == local) && roundInProgress;
-
+        bool myTurn = roundInProgress && currentPlayerIndex == local;
         sharedControls.SetTurnEnabled(myTurn);
 
         //toggle split visibility / interactability when its your turn
@@ -445,47 +448,54 @@ public class MultiplayerGameManager : MonoBehaviour
     public void RequestHit(int seatIndex, ulong callerSteamId)
     {
         if (!roundInProgress) { StartRound(); return; }
-        if (!IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
+        if (!IsCurrentTurn(seatIndex)) return;
+        if (!IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
-        bool onSplit = (p.hasSplit && p.playingSplit);
         var hand = ActiveHand(p);
 
-        var c = cardManager.DealCardToPlayer(seatIndex, true, onSplit);
+        var c = cardManager.DealCardToPlayer(seatIndex, true, p.hasSplit && p.playingSplit);
         hand.Add(c);
 
         if (CalculateHandScore(hand) > 21)
         {
-            statusText.text = $"{p.playerName} busted!";
-            // If they still have another hand to play (after main), switch to it
+            // Busts this hand only
             if (p.hasSplit && !p.playingSplit)
             {
+                // main hand busted; play the split hand now
                 p.playingSplit = true;
-                statusText.text = $"{p.playerName} — play your split hand!";
+                statusText.text = $"{p.playerName} busted main hand — now playing split hand.";
                 UpdateTurnControls();
-                return;
+                return; // stay on same player
             }
-            p.isDone = true;
-            NextPlayer();
+            else
+            {
+                p.isDone = true;
+                statusText.text = $"{p.playerName} busted!";
+                NextPlayer();
+                UpdateTurnControls();
+            }
         }
-        UpdateTurnControls();
     }
 
     public void RequestStand(int seatIndex, ulong callerSteamId)
     {
-        if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
+        if (!roundInProgress) return;
+        if (!IsCurrentTurn(seatIndex)) return;
+        if (!IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
 
-        // Finished main? move to split; otherwise end turn
         if (p.hasSplit && !p.playingSplit)
         {
+            // Finished main hand; switch to split hand
             p.playingSplit = true;
-            statusText.text = $"{p.playerName} — play your split hand!";
+            statusText.text = $"{p.playerName} stands (main). Now playing split hand.";
             UpdateTurnControls();
-            return;
+            return; // stay on same player
         }
 
+        // No split pending OR we were already on split hand
         p.isDone = true;
         statusText.text = $"{p.playerName} stands.";
         NextPlayer();
@@ -536,23 +546,26 @@ public class MultiplayerGameManager : MonoBehaviour
         p.cash -= p.wager;
         p.splitWager = p.wager;
 
-        // Move second card to split hand
+        //Move the existing card visually
         var moved = p.hand[1];
         p.hand.RemoveAt(1);
         p.splitHand.Clear();
         p.splitHand.Add(moved);
+        cardManager.MoveCardBetweenHands(seatIndex, moved, toSplit: true);
 
-        // Mark split state
+        // Mark split state: we start by continuing the MAIN hand
         p.hasSplit = true;
-        p.playingSplit = false; // start by continuing on the original hand
+        p.playingSplit = false;
 
         // Deal one card to each hand
-        p.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false)); // main hand
-        p.splitHand.Add(cardManager.DealCardToPlayer(seatIndex, true, true)); // split hand (visual lane)
+        p.hand.Add(cardManager.DealCardToPlayer(seatIndex, true, false));  // main lane
+        p.splitHand.Add(cardManager.DealCardToPlayer(seatIndex, true, true)); // split lane
 
         statusText.text = $"{p.playerName} splits.";
-        seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);   // show cash/wager changes
+        seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
         UpdateCashUI();
-        UpdateTurnControls();                                 // Split button visibility etc.
+
+        // Split is no longer legal now
+        UpdateTurnControls();
     }
 }
