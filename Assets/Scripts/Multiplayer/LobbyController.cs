@@ -134,6 +134,21 @@ public class LobbyController : MonoBehaviour
 
         for (int i = 0; i < seatRows.Length; i++)
         {
+            if (seatRows[i]?.inviteButton)
+            {
+                seatRows[i].inviteButton.onClick.RemoveAllListeners();
+                seatRows[i].inviteButton.onClick.AddListener(() =>
+                {
+                    if (current.IsValid())
+                        SteamFriends.ActivateGameOverlayInviteDialog(current);
+                });
+            }
+            if (seatRows[i]?.leaveButton)
+            {
+                seatRows[i].leaveButton.onClick.RemoveAllListeners();
+                seatRows[i].leaveButton.onClick.AddListener(LeaveAndBackToMenu);
+            }
+
             if (i < count)
             {
                 var id = SteamMatchmaking.GetLobbyMemberByIndex(current, i);
