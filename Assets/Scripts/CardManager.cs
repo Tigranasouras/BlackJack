@@ -100,6 +100,26 @@ public class CardManager : MonoBehaviour
         return card;
     }
 
+    // --- Multiplayer rendering helpers (do NOT draw from deck) ---
+    public Card SpawnCardToPlayerFromData(int playerIndex, string suit, int value, bool faceUp, bool toSplit)
+    {
+        if (playerIndex < 0 || playerIndex >= playerAreas.Count)
+        {
+            Debug.LogError($"SpawnCardToPlayerFromData: playerIndex {playerIndex} out of range.");
+            return null;
+        }
+
+        Transform parent = toSplit ? playerAreas[playerIndex].split : playerAreas[playerIndex].main;
+        var data = new CardData(suit, value);
+        return SpawnCard(data, parent, faceUp);
+    }
+
+    public Card SpawnCardToDealerFromData(string suit, int value, bool faceUp)
+    {
+        var data = new CardData(suit, value);
+        return SpawnCard(data, dealerArea, faceUp);
+    }
+
     private void UpdateCardCountUI()
     {
         if (cardCountText == null) return;

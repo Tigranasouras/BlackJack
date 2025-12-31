@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using Steamworks;
 
 
@@ -20,7 +21,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
     // runtime state
     public List<PlayerData> players = new();
-    public List<SeatRuntime> seats = new();   // <— single definition
+    public List<SeatRuntime> seats = new();   // <- single definition
 
     private int currentPlayerIndex = 0;
     private List<Card> dealerHand = new();
@@ -36,14 +37,43 @@ public class MultiplayerGameManager : MonoBehaviour
 
     public TMPro.TextMeshProUGUI localCashBig;
 
+    [Header("Networking")]
+    [Tooltip("Auto-detected. Host = lobby owner. In solo/offline this will be true.")]
+    public bool isHost = false;
+
+    private BJSteamP2PBus bus;
+    private CSteamID lobbyId = CSteamID.Nil;
+    private ulong hostSteamId = 0UL;
+
 
     void Start()
     {
-        //Build an empty table (SeatAssigner will populate ownership/humans vs. bots)
+        // Build an empty table (SeatAssigner will populate ownership/humans vs. bots)
         BuildEmptyTable(seatUIs.Count);
-        statusText.text = "Waiting for wagers..";
-        UpdateCashUI();
 
+        // Networking wiring (Steam P2P messages)
+        bus = BJSteamP2PBus.Instance ?? new GameObject("BJSteamP2PBus").AddComponent<BJSteamP2PBus>();
+        bus.OnJsonMessage += OnNetJson;
+
+        // Detect host from lobby owner (fallback to solo)
+        if (SteamManager.Initialized && LobbyBridge.Instance && LobbyBridge.Instance.HasLobby)
+        {
+            lobbyId = LobbyBridge.Instance.LobbyId;
+            hostSteamId = SteamMatchmaking.GetLobbyOwner(lobbyId).m_SteamID;
+            isHost = SteamUser.GetSteamID().m_SteamID == hostSteamId;
+        }
+        else
+        {
+            isHost = true;
+        }
+
+        statusText.text = isHost ? "Waiting for wagers..." : "Waiting for host...";
+        UpdateCashUI();
+    }
+
+    private void OnDestroy()
+    {
+        if (bus != null) bus.OnJsonMessage -= OnNetJson;
     }
 
     public void BuildEmptyTable(int seatCount)
@@ -107,6 +137,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
     public void OnWager(PlayerData player, int amount)
     {
+        if (!isHost) return; // only host mutates authoritative money/wagers
         if (amount <= 0) return;
 
         if (player.cash >= amount)
@@ -119,15 +150,18 @@ public class MultiplayerGameManager : MonoBehaviour
                 : $"{player.playerName} wagered ${amount:N0}";
 
             UpdateCashUI();
+            BroadcastState();
         }
         else
         {
             statusText.text = $"{player.playerName} doesn't have enough cash!";
+            BroadcastState();
         }
     }
 
     public void StartRound()
     {
+        if (!isHost) return; // only host deals / advances the round
         if (roundInProgress) return;
 
         bool anyEligible = false;
@@ -182,6 +216,8 @@ public class MultiplayerGameManager : MonoBehaviour
         StartCoroutine(HandleTurn(players[currentPlayerIndex]));
         UpdateCashUI();
         UpdateTurnControls();
+
+        BroadcastState();
     }
 
     private IEnumerator HandleTurn(PlayerData player)
@@ -200,6 +236,7 @@ public class MultiplayerGameManager : MonoBehaviour
         {
             statusText.text = $"{player.playerName}, choose an action!";
             UpdateTurnControls();
+            BroadcastState();
 
         }
     }
@@ -262,6 +299,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
     private void NextPlayer()
     {
+        if (!isHost) return;
         currentPlayerIndex++;
 
         while (currentPlayerIndex < players.Count &&
@@ -279,37 +317,48 @@ public class MultiplayerGameManager : MonoBehaviour
         {
             StartCoroutine(HandleTurn(players[currentPlayerIndex]));
         }
+
+        BroadcastState();
     }
 
 
     public void OnNextHandButton()
     {
         if (roundInProgress) return; //Don't allow during a hand
+        if (!isHost)
         {
-            StartRound(); // StartRound already enforces MIN_BET
+            SendRequest("REQ_START", -1, 0);
+            return;
         }
+
+        StartRound(); // StartRound already enforces MIN_BET
     }
 
     private IEnumerator DealerTurn()
     {
+        if (!isHost) yield break;
         if (dealerHand.Count == 0) { Debug.LogError("DealerTurn called with empty dealerHand."); yield break; }
 
         dealerHand[0].ShowBack(false);
         dealerScore = CalculateHandScore(dealerHand);
+        BroadcastState();
 
         while (dealerScore < 17)
         {
             dealerHand.Add(cardManager.DealCardToDealer(true));
             dealerScore = CalculateHandScore(dealerHand);
+            BroadcastState();
             yield return new WaitForSeconds(1f);
         }
 
         ResolveBets();
         UpdateCashUI();
+        BroadcastState();
 
         roundInProgress = false;
         statusText.text = "Round over. Place wagers!";
         BeginBettingPhase(); //re-enable local betting UI
+        BroadcastState();
     }
 
     private int PayoutFor(List<Card> hand, int wager, int dealerFinal)
@@ -436,6 +485,13 @@ public class MultiplayerGameManager : MonoBehaviour
 
     public void RequestWager(int seatIndex, int amount, ulong callerSteamId)
     {
+        // Clients forward requests to host. Host applies + broadcasts.
+        if (!isHost)
+        {
+            SendRequest("REQ_WAGER", seatIndex, amount);
+            return;
+        }
+
         if (roundInProgress) return;
         if (!IsMySeat(seatIndex, callerSteamId)) return;
 
@@ -443,10 +499,17 @@ public class MultiplayerGameManager : MonoBehaviour
         if (amount == -1) amount = p.cash; // all-in
         OnWager(p, amount);
         seats[seatIndex].ui.UpdateMoneyUI(p.cash, p.wager);
+        BroadcastState();
     }
 
     public void RequestHit(int seatIndex, ulong callerSteamId)
     {
+        if (!isHost)
+        {
+            SendRequest("REQ_HIT", seatIndex, 0);
+            return;
+        }
+
         if (!roundInProgress) { StartRound(); return; }
         if (!IsCurrentTurn(seatIndex)) return;
         if (!IsMySeat(seatIndex, callerSteamId)) return;
@@ -464,8 +527,9 @@ public class MultiplayerGameManager : MonoBehaviour
             {
                 // main hand busted; play the split hand now
                 p.playingSplit = true;
-                statusText.text = $"{p.playerName} busted main hand — now playing split hand.";
+                statusText.text = $"{p.playerName} busted main hand - now playing split hand.";
                 UpdateTurnControls();
+                BroadcastState();
                 return; // stay on same player
             }
             else
@@ -474,12 +538,23 @@ public class MultiplayerGameManager : MonoBehaviour
                 statusText.text = $"{p.playerName} busted!";
                 NextPlayer();
                 UpdateTurnControls();
+                BroadcastState();
             }
+        }
+        else
+        {
+            BroadcastState();
         }
     }
 
     public void RequestStand(int seatIndex, ulong callerSteamId)
     {
+        if (!isHost)
+        {
+            SendRequest("REQ_STAND", seatIndex, 0);
+            return;
+        }
+
         if (!roundInProgress) return;
         if (!IsCurrentTurn(seatIndex)) return;
         if (!IsMySeat(seatIndex, callerSteamId)) return;
@@ -492,6 +567,7 @@ public class MultiplayerGameManager : MonoBehaviour
             p.playingSplit = true;
             statusText.text = $"{p.playerName} stands (main). Now playing split hand.";
             UpdateTurnControls();
+            BroadcastState();
             return; // stay on same player
         }
 
@@ -500,10 +576,17 @@ public class MultiplayerGameManager : MonoBehaviour
         statusText.text = $"{p.playerName} stands.";
         NextPlayer();
         UpdateTurnControls();
+        BroadcastState();
     }
 
     public void RequestDouble(int seatIndex, ulong callerSteamId)
     {
+        if (!isHost)
+        {
+            SendRequest("REQ_DOUBLE", seatIndex, 0);
+            return;
+        }
+
         if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
@@ -523,8 +606,9 @@ public class MultiplayerGameManager : MonoBehaviour
             if (p.hasSplit && !p.playingSplit)
             {
                 p.playingSplit = true;
-                statusText.text = $"{p.playerName} — play your split hand!";
+                statusText.text = $"{p.playerName} - play your split hand!";
                 UpdateTurnControls();
+                BroadcastState();
                 return;
             }
 
@@ -533,10 +617,17 @@ public class MultiplayerGameManager : MonoBehaviour
         }
         UpdateCashUI();
         UpdateTurnControls();
+        BroadcastState();
     }
 
     public void RequestSplit(int seatIndex, ulong callerSteamId)
     {
+        if (!isHost)
+        {
+            SendRequest("REQ_SPLIT", seatIndex, 0);
+            return;
+        }
+
         if (!roundInProgress || !IsCurrentTurn(seatIndex) || !IsMySeat(seatIndex, callerSteamId)) return;
 
         var p = seats[seatIndex].player;
@@ -567,5 +658,191 @@ public class MultiplayerGameManager : MonoBehaviour
 
         // Split is no longer legal now
         UpdateTurnControls();
+        BroadcastState();
+    }
+
+    // ---------------- Networking ----------------
+
+    private void SendRequest(string type, int seatIndex, int amount)
+    {
+        if (!SteamManager.Initialized || !lobbyId.IsValid() || bus == null) return;
+
+        var env = new BJNetEnvelope
+        {
+            type = type,
+            senderSteamId = SteamUser.GetSteamID().m_SteamID,
+            seatIndex = seatIndex,
+            amount = amount,
+            state = null
+        };
+
+        string json = JsonUtility.ToJson(env);
+        // always send to host
+        bus.SendToUser(hostSteamId, json);
+    }
+
+    private void BroadcastState()
+    {
+        if (!isHost || bus == null) return;
+
+        var env = new BJNetEnvelope
+        {
+            type = "STATE",
+            senderSteamId = SteamManager.Initialized ? SteamUser.GetSteamID().m_SteamID : 0UL,
+            seatIndex = -1,
+            amount = 0,
+            state = BuildState()
+        };
+
+        string json = JsonUtility.ToJson(env);
+        if (SteamManager.Initialized && lobbyId.IsValid())
+            bus.BroadcastToLobby(lobbyId, json);
+    }
+
+    private BJTableDTO BuildState()
+    {
+        var dto = new BJTableDTO
+        {
+            currentPlayerIndex = currentPlayerIndex,
+            roundInProgress = roundInProgress,
+            statusText = statusText ? statusText.text : ""
+        };
+
+        // players
+        for (int i = 0; i < players.Count; i++)
+        {
+            var p = players[i];
+            var pd = new BJPlayerDTO
+            {
+                playerName = p.playerName,
+                isBot = p.isBot,
+                cash = p.cash,
+                wager = p.wager,
+                splitWager = p.splitWager,
+                hasSplit = p.hasSplit,
+                playingSplit = p.playingSplit,
+                isDone = p.isDone
+            };
+
+            // hands
+            foreach (var c in p.hand)
+            {
+                if (c == null) continue;
+                pd.hand.Add(new BJCardDTO { suit = c.suit, value = c.value, faceUp = c.IsFaceUp() });
+            }
+            foreach (var c in p.splitHand)
+            {
+                if (c == null) continue;
+                pd.splitHand.Add(new BJCardDTO { suit = c.suit, value = c.value, faceUp = c.IsFaceUp() });
+            }
+
+            dto.players.Add(pd);
+        }
+
+        // dealer
+        foreach (var c in dealerHand)
+        {
+            if (c == null) continue;
+            dto.dealerHand.Add(new BJCardDTO { suit = c.suit, value = c.value, faceUp = c.IsFaceUp() });
+        }
+
+        return dto;
+    }
+
+    private void ApplyState(BJTableDTO dto)
+    {
+        if (dto == null) return;
+
+        // Clients are purely renderers. Stop any local coroutines.
+        StopAllCoroutines();
+
+        roundInProgress = dto.roundInProgress;
+        currentPlayerIndex = dto.currentPlayerIndex;
+        if (statusText) statusText.text = dto.statusText ?? "";
+
+        // Defensive: keep seat count stable; just overwrite existing PlayerData objects.
+        int n = Mathf.Min(players.Count, dto.players.Count);
+        for (int i = 0; i < n; i++)
+        {
+            var p = players[i];
+            var pd = dto.players[i];
+
+            p.playerName = pd.playerName;
+            p.isBot = pd.isBot;
+            p.cash = pd.cash;
+            p.wager = pd.wager;
+            p.splitWager = pd.splitWager;
+            p.hasSplit = pd.hasSplit;
+            p.playingSplit = pd.playingSplit;
+            p.isDone = pd.isDone;
+
+            p.hand.Clear();
+            p.splitHand.Clear();
+        }
+
+        // Rebuild visuals from snapshot
+        if (cardManager)
+        {
+            cardManager.ClearPlayerAreas();
+            cardManager.ClearDealerArea();
+
+            for (int i = 0; i < n; i++)
+            {
+                var p = players[i];
+                var pd = dto.players[i];
+
+                foreach (var c in pd.hand)
+                {
+                    var card = cardManager.SpawnCardToPlayerFromData(i, c.suit, c.value, c.faceUp, toSplit: false);
+                    if (card != null) p.hand.Add(card);
+                }
+                foreach (var c in pd.splitHand)
+                {
+                    var card = cardManager.SpawnCardToPlayerFromData(i, c.suit, c.value, c.faceUp, toSplit: true);
+                    if (card != null) p.splitHand.Add(card);
+                }
+            }
+
+            dealerHand.Clear();
+            foreach (var c in dto.dealerHand)
+            {
+                var card = cardManager.SpawnCardToDealerFromData(c.suit, c.value, c.faceUp);
+                if (card != null) dealerHand.Add(card);
+            }
+        }
+
+        UpdateCashUI();
+        UpdateTurnControls();
+    }
+
+    private void OnNetJson(ulong senderSteamId, string json)
+    {
+        if (string.IsNullOrEmpty(json)) return;
+
+        BJNetEnvelope env;
+        try { env = JsonUtility.FromJson<BJNetEnvelope>(json); }
+        catch { return; }
+        if (env == null) return;
+
+        // Host receives REQ_* and executes them using the caller's steamId for validation.
+        if (isHost && env.type != null && env.type.StartsWith("REQ_"))
+        {
+            switch (env.type)
+            {
+                case "REQ_WAGER": RequestWager(env.seatIndex, env.amount, senderSteamId); break;
+                case "REQ_HIT": RequestHit(env.seatIndex, senderSteamId); break;
+                case "REQ_STAND": RequestStand(env.seatIndex, senderSteamId); break;
+                case "REQ_DOUBLE": RequestDouble(env.seatIndex, senderSteamId); break;
+                case "REQ_SPLIT": RequestSplit(env.seatIndex, senderSteamId); break;
+                case "REQ_START": StartRound(); break;
+            }
+            return;
+        }
+
+        // Clients receive authoritative snapshots.
+        if (!isHost && env.type == "STATE")
+        {
+            ApplyState(env.state);
+        }
     }
 }
