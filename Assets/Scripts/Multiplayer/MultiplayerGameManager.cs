@@ -116,9 +116,15 @@ public class MultiplayerGameManager : MonoBehaviour
     public void BeginBettingPhase()
     {
         statusText.text = "Waiting for wagers...";
-        //enable wagers for local seat only
+
+        // Enable wagers for local seat only
         if (sharedControls)
             sharedControls.SetBettingEnabled(LocalSeatIndex >= 0);
+
+        // In multiplayer, bots don't have an "owner" to click wager buttons.
+        // The host should auto-wager for bot seats so humans can play with bots.
+        if (isHost)
+            AutoWagerBots();
     }
 
     private int LocalSeatIndex
@@ -409,7 +415,43 @@ public class MultiplayerGameManager : MonoBehaviour
     }
 
 
-    private void UpdateCashUI()
+    private void AutoWagerBots()
+    {
+        // Only host can mutate authoritative state.
+        if (!isHost) return;
+        if (roundInProgress) return;
+
+        bool changed = false;
+
+        for (int i = 0; i < seats.Count; i++)
+        {
+            var s = seats[i];
+            if (s == null || s.player == null) continue;
+            if (!s.player.isBot) continue;
+
+            // Ensure bots meet the minimum bet so they participate.
+            if (s.player.wager >= MIN_BET) continue;
+
+            int need = MIN_BET - s.player.wager;
+            if (need <= 0) continue;
+
+            int bet = Mathf.Clamp(need, 0, s.player.cash);
+            if (bet <= 0) continue;
+
+            s.player.wager += bet;
+            s.player.cash -= bet;
+            changed = true;
+
+            if (s.ui) s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
+        }
+
+        if (changed)
+        {
+            UpdateCashUI();
+            BroadcastState();
+        }
+    }
+    void UpdateCashUI()
     {
         for (int i = 0; i < players.Count && i < playerCashTexts.Count; i++)
             playerCashTexts[i].text = $"{players[i].playerName}: ${players[i].cash:N0}";
