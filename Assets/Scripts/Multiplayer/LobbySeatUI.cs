@@ -28,6 +28,7 @@ public class LobbySeatUI : MonoBehaviour
         {
             avatarImage.sprite = avatar;
             avatarImage.color = Color.white;
+
         }
         if (leaveButton) leaveButton.gameObject.SetActive(isLocal); //Local can leave
         if (inviteButton) inviteButton.gameObject.SetActive(!isLocal); //Show invite on empty seats; hide on occupied
