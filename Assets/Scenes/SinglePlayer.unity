@@ -2725,8 +2725,7 @@ MonoBehaviour:
   cardPrefab: {fileID: 7282877367437588861, guid: f9c1a80a5227afc49b8e47ea17c9e6bd, type: 3}
   dealerArea: {fileID: 2101978845}
   deckArea: {fileID: 259606098}
-  firstHandContainer: {fileID: 1725340618}
-  splitHandContainer: {fileID: 1072457917}
+  playerAreas: []
   cardCountText: {fileID: 1912276514}
   numerOfDecks: 6
 --- !u!1 &1037869181

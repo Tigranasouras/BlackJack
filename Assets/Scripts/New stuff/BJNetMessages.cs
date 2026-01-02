@@ -17,6 +17,7 @@ public class BJPlayerDTO
 {
     public string playerName;
     public bool isBot;
+    public bool isActive;
 
     public int cash;
     public int wager;

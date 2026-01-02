@@ -20,6 +20,13 @@ public class LobbyController : MonoBehaviour
     public int maxMembers = 4;
     public ELobbyType lobbyType = ELobbyType.k_ELobbyTypeFriendsOnly;
 
+    [Header("Bots (Optional)")]
+    [Tooltip("If true, the host will fill empty seats with bots when the game starts.")]
+    public bool fillEmptySeatsWithBots = true;
+
+    [Tooltip("Optional UI toggle (only the host can change this).")]
+    public Toggle fillBotsToggle;
+
     // Steam callbacks
     private Callback<LobbyMatchList_t> cbMatchList;
     private Callback<LobbyCreated_t> cbCreated;
@@ -63,6 +70,16 @@ public class LobbyController : MonoBehaviour
         if (exitButton) exitButton.onClick.AddListener(LeaveAndBackToMenu);
         if (inviteButton) inviteButton.onClick.AddListener(OpenInviteOverlay);
 
+        if (fillBotsToggle)
+        {
+            fillBotsToggle.isOn = fillEmptySeatsWithBots;
+            fillBotsToggle.onValueChanged.AddListener(v =>
+            {
+                fillEmptySeatsWithBots = v;
+                if (IsOwner()) WriteFillBotsSetting();
+            });
+        }
+
         SetStartEnabled(false);
         ClearSeatUI();
     }
@@ -104,6 +121,10 @@ public class LobbyController : MonoBehaviour
         SteamMatchmaking.SetLobbyData(current, "name", "Dealer Advantage");
         SteamMatchmaking.SetLobbyData(current, "state", "lobby");
 
+        // Persist a stable seat mapping in lobby data so re-joins don't reshuffle seats.
+        InitializeSeatMapAsOwner();
+        WriteFillBotsSetting();
+
         headerText?.SetText("Lobby created");
         // Owner will also receive LobbyEnter shortly after
     }
@@ -114,6 +135,20 @@ public class LobbyController : MonoBehaviour
         bridge.SetLobby(current);                  // <-- use 'current', not currentLobby
         bridge.MarkEntered();                      // tells your game scene you’re actually in
         headerText?.SetText("In lobby");
+
+        // If this lobby is already starting (e.g. rejoin / late join), jump straight to game.
+        string state = SteamMatchmaking.GetLobbyData(current, "state");
+        if (state == "starting")
+        {
+            SceneManager.LoadScene(gameSceneName);
+            return;
+        }
+
+        if (IsOwner())
+        {
+            OwnerReconcileSeatMap();
+            WriteFillBotsSetting();
+        }
 
         RefreshMembers();
         SetStartEnabled(IsOwner());
@@ -129,8 +164,18 @@ public class LobbyController : MonoBehaviour
     {
         if (!current.IsValid()) return;
 
-        int count = SteamMatchmaking.GetNumLobbyMembers(current);
+        if (IsOwner())
+            OwnerReconcileSeatMap();
+
         var me = SteamUser.GetSteamID();
+        var owner = SteamMatchmaking.GetLobbyOwner(current);
+
+        // Only host can change bot setting
+        if (fillBotsToggle)
+        {
+            fillBotsToggle.gameObject.SetActive(IsOwner());
+            fillBotsToggle.isOn = GetFillBotsSetting();
+        }
 
         for (int i = 0; i < seatRows.Length; i++)
         {
@@ -149,9 +194,10 @@ public class LobbyController : MonoBehaviour
                 seatRows[i].leaveButton.onClick.AddListener(LeaveAndBackToMenu);
             }
 
-            if (i < count)
+            ulong seatU64 = GetSeatSteamId(i);
+            if (seatU64 != 0UL)
             {
-                var id = SteamMatchmaking.GetLobbyMemberByIndex(current, i);
+                var id = new CSteamID(seatU64);
                 string name = SteamFriends.GetFriendPersonaName(id);
                 var avatar = SteamImageUtils.GetAvatarSprite(id, true);
                 bool isLocal = id == me;
@@ -182,6 +228,97 @@ public class LobbyController : MonoBehaviour
         foreach (var r in seatRows) if (r) r.SetEmpty();
     }
 
+    // -----------------------------
+    // Stable seat mapping in lobby data (rejoin-friendly)
+    // -----------------------------
+
+    private const string SEAT_PREFIX = "seat_";
+    private const string FILLBOTS_KEY = "fillBots";
+
+    private string SeatKey(int i) => SEAT_PREFIX + i;
+
+    private ulong GetSeatSteamId(int seatIndex)
+    {
+        string v = SteamMatchmaking.GetLobbyData(current, SeatKey(seatIndex));
+        if (ulong.TryParse(v, out var u)) return u;
+        return 0UL;
+    }
+
+    private void SetSeatSteamId(int seatIndex, ulong steamId)
+    {
+        SteamMatchmaking.SetLobbyData(current, SeatKey(seatIndex), steamId.ToString());
+    }
+
+    private void InitializeSeatMapAsOwner()
+    {
+        if (!IsOwner()) return;
+        // Put current members into seats in order (owner will be present).
+        int count = SteamMatchmaking.GetNumLobbyMembers(current);
+        for (int i = 0; i < maxMembers; i++)
+        {
+            ulong id = 0UL;
+            if (i < count)
+                id = SteamMatchmaking.GetLobbyMemberByIndex(current, i).m_SteamID;
+            SetSeatSteamId(i, id);
+        }
+    }
+
+    private void OwnerReconcileSeatMap()
+    {
+        if (!IsOwner()) return;
+
+        // Load existing map
+        ulong[] map = new ulong[maxMembers];
+        for (int i = 0; i < maxMembers; i++)
+            map[i] = GetSeatSteamId(i);
+
+        // Current lobby members
+        int count = SteamMatchmaking.GetNumLobbyMembers(current);
+        var members = new HashSet<ulong>();
+        for (int i = 0; i < count; i++)
+            members.Add(SteamMatchmaking.GetLobbyMemberByIndex(current, i).m_SteamID);
+
+        // Remove leavers
+        for (int i = 0; i < map.Length; i++)
+            if (map[i] != 0UL && !members.Contains(map[i]))
+                map[i] = 0UL;
+
+        // Add joiners to first empty seat
+        foreach (var id in members)
+        {
+            bool already = false;
+            for (int i = 0; i < map.Length; i++)
+                if (map[i] == id) { already = true; break; }
+            if (already) continue;
+
+            for (int i = 0; i < map.Length; i++)
+            {
+                if (map[i] == 0UL)
+                {
+                    map[i] = id;
+                    break;
+                }
+            }
+        }
+
+        // Write back
+        for (int i = 0; i < map.Length; i++)
+            SetSeatSteamId(i, map[i]);
+    }
+
+    private void WriteFillBotsSetting()
+    {
+        if (!IsOwner()) return;
+        SteamMatchmaking.SetLobbyData(current, FILLBOTS_KEY, fillEmptySeatsWithBots ? "1" : "0");
+    }
+
+    private bool GetFillBotsSetting()
+    {
+        string v = SteamMatchmaking.GetLobbyData(current, FILLBOTS_KEY);
+        if (string.IsNullOrEmpty(v)) return fillEmptySeatsWithBots;
+        return v == "1";
+    }
+
     private void OpenInviteOverlay()
     {
         if (current.IsValid())
@@ -191,6 +328,8 @@ public class LobbyController : MonoBehaviour
     private void OnStartGame()
     {
         if (!IsOwner()) return;
+        OwnerReconcileSeatMap();
+        WriteFillBotsSetting();
         SteamMatchmaking.SetLobbyData(current, "state", "starting");
         SceneManager.LoadScene(gameSceneName);
     }

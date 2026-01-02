@@ -53,9 +53,11 @@ public class LobbyBridge : MonoBehaviour
         SetLobby(id);
         Entered = true;
 
-        // Ensure we are in the Lobby scene on both host and client
-        if (SceneManager.GetActiveScene().name != lobbyScene)
-            SceneManager.LoadScene(lobbyScene);
+        // If the lobby already started (late join / rejoin), jump straight into the game.
+        string state = SteamMatchmaking.GetLobbyData(id, "state");
+        string target = (state == "starting") ? gameScene : lobbyScene;
+        if (SceneManager.GetActiveScene().name != target)
+            SceneManager.LoadScene(target);
     }
 
 
@@ -80,5 +82,5 @@ public class LobbyBridge : MonoBehaviour
     public int GetNumLobbyMembers()
         => HasLobby ? SteamMatchmaking.GetNumLobbyMembers(LobbyId) : 0;
 
-    
+
 }

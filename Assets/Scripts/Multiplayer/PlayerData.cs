@@ -6,6 +6,7 @@ public class PlayerData
 {
     public string playerName;
     public bool isBot;
+    public bool isActive = true; // seat enabled (bots/humans). Inactive seats are ignored.
     public int cash;
     public int wager;
     public List<Card> hand = new List<Card>();
@@ -13,7 +14,7 @@ public class PlayerData
     public List<Card> splitHand = new List<Card>();
     public bool hasSplit = false;
     public bool playingSplit = false;
-    public int splitWager = 0; 
+    public int splitWager = 0;
 
     public PlayerData(string name, bool bot, int startingCash)
     {

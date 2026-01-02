@@ -3,18 +3,31 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static Unity.VisualScripting.Member;
+using Steamworks;
 
 
 public class MenuHandler : MonoBehaviour
 {
     public AudioSource source;
 
+    private void LeaveLobbyIfAny()
+    {
+        var bridge = FindFirstObjectByType<LobbyBridge>();
+        if (bridge != null && bridge.HasLobby && SteamManager.Initialized)
+        {
+            SteamMatchmaking.LeaveLobby(bridge.LobbyId);
+            bridge.Clear();
+        }
+    }
+
     public void goToMenu()
     {
+        LeaveLobbyIfAny();
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
     }
     public void goToLobby()
     {
+        LeaveLobbyIfAny();
         UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby");
     }
     public void goToGameNoMusic()

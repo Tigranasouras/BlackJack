@@ -30,12 +30,19 @@ public class MultiplayerGameManager : MonoBehaviour
     private bool roundInProgress = false;
 
     private const int MIN_BET = 25;
-    private bool HasMinBet(PlayerData p) => p.wager >= MIN_BET;
+    private bool HasMinBet(PlayerData p) => p != null && p.isActive && p.wager >= MIN_BET;
     private int GetIndex(PlayerData p) => players.IndexOf(p);
 
     public SharedSeatControls sharedControls;
 
     public TMPro.TextMeshProUGUI localCashBig;
+
+    [Header("Timing")]
+    [Tooltip("Delay after a player finishes their action (Stand/Bust/Double/etc.) before the next seat starts.")]
+    public float turnAdvanceDelay = 0.75f;
+
+    [Tooltip("Keep cards on the table this many seconds after the round resolves, then clear for the next betting phase.")]
+    public float roundClearDelay = 2.0f;
 
     [Header("Networking")]
     [Tooltip("Auto-detected. Host = lobby owner. In solo/offline this will be true.")]
@@ -83,7 +90,8 @@ public class MultiplayerGameManager : MonoBehaviour
 
         for (int i = 0; i < seatCount; i++)
         {
-            var p = new PlayerData($"Seat{i + 1}", true, 1_000_000); // default bot until SetSeatOwner
+            var p = new PlayerData($"Seat{i + 1}", true, 1_000_000);
+            p.isActive = true; // default bot until SetSeatOwner
             players.Add(p);
 
             var s = new SeatRuntime
@@ -100,14 +108,29 @@ public class MultiplayerGameManager : MonoBehaviour
     }
 
 
-    // Called by SeatAssigner when ownership is known
-    public void SetSeatOwner(int index, ulong ownerId, string displayName, bool isBot)
+    // Called by SeatAssigner when ownership is known.
+    // isActive=false means the seat is disabled (no human, no bot). This supports optional bots.
+    public void SetSeatOwner(int index, ulong ownerId, string displayName, bool isBot, bool isActive = true)
     {
         var s = seats[index];
         s.ownerSteamId = ownerId;
         s.player.isBot = isBot;
+        s.player.isActive = isActive;
         if (!string.IsNullOrEmpty(displayName))
             s.player.playerName = displayName;
+
+        if (!isActive)
+        {
+            // Disabled seats should not participate in the round.
+            s.player.cash = 0;
+            s.player.wager = 0;
+            s.player.splitWager = 0;
+            s.player.hasSplit = false;
+            s.player.playingSplit = false;
+            s.player.isDone = true;
+            s.player.hand.Clear();
+            s.player.splitHand.Clear();
+        }
 
         s.ui.Init(this, index, s.ownerSteamId, s.player.isBot);
         s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
@@ -116,15 +139,28 @@ public class MultiplayerGameManager : MonoBehaviour
     public void BeginBettingPhase()
     {
         statusText.text = "Waiting for wagers...";
-
-        // Enable wagers for local seat only
+        //enable wagers for local seat only
         if (sharedControls)
             sharedControls.SetBettingEnabled(LocalSeatIndex >= 0);
 
-        // In multiplayer, bots don't have an "owner" to click wager buttons.
-        // The host should auto-wager for bot seats so humans can play with bots.
+        // Host can optionally have bots auto-wager the minimum to participate.
         if (isHost)
-            AutoWagerBots();
+        {
+            foreach (var p in players)
+            {
+                if (p == null || !p.isActive) continue;
+                if (!p.isBot) continue;
+                if (p.wager > 0) continue;
+
+                if (p.cash >= MIN_BET)
+                {
+                    p.cash -= MIN_BET;
+                    p.wager = MIN_BET;
+                }
+            }
+            UpdateCashUI();
+            BroadcastState();
+        }
     }
 
     private int LocalSeatIndex
@@ -184,8 +220,8 @@ public class MultiplayerGameManager : MonoBehaviour
             p.hasSplit = false;
             p.playingSplit = false;
             p.splitWager = 0;
-            p.isDone = false;
-
+            // Disabled seats should not participate.
+            p.isDone = !p.isActive;
         }
 
         dealerHand.Clear(); dealerScore = 0;
@@ -306,6 +342,20 @@ public class MultiplayerGameManager : MonoBehaviour
     private void NextPlayer()
     {
         if (!isHost) return;
+        if (!advanceTurnQueued)
+            StartCoroutine(CoAdvanceTurn());
+    }
+
+    private bool advanceTurnQueued = false;
+
+    private IEnumerator CoAdvanceTurn()
+    {
+        if (advanceTurnQueued) yield break;
+        advanceTurnQueued = true;
+        // Let clients show animations/sfx before the next seat begins.
+        BroadcastState();
+        yield return new WaitForSeconds(turnAdvanceDelay);
+
         currentPlayerIndex++;
 
         while (currentPlayerIndex < players.Count &&
@@ -315,7 +365,7 @@ public class MultiplayerGameManager : MonoBehaviour
         if (currentPlayerIndex >= players.Count)
         {
             if (roundInProgress && dealerHand.Count >= 1)
-                StartCoroutine(DealerTurn());
+                yield return StartCoroutine(DealerTurn());
             else
                 Debug.LogWarning("Tried to start DealerTurn without a valid dealer hand.");
         }
@@ -324,6 +374,7 @@ public class MultiplayerGameManager : MonoBehaviour
             StartCoroutine(HandleTurn(players[currentPlayerIndex]));
         }
 
+        advanceTurnQueued = false;
         BroadcastState();
     }
 
@@ -362,9 +413,36 @@ public class MultiplayerGameManager : MonoBehaviour
         BroadcastState();
 
         roundInProgress = false;
-        statusText.text = "Round over. Place wagers!";
+        statusText.text = "Round over.";
+        BroadcastState();
+
+        // Keep the final table visible briefly so you can play win/lose animations + SFX.
+        yield return new WaitForSeconds(roundClearDelay);
+
+        ClearTableForNextRound();
+        statusText.text = "Place wagers!";
         BeginBettingPhase(); //re-enable local betting UI
         BroadcastState();
+    }
+
+    private void ClearTableForNextRound()
+    {
+        // Clear card visuals + model state. (Wagers already reset in ResolveBets.)
+        cardManager.ClearPlayerAreas();
+        cardManager.ClearDealerArea();
+
+        foreach (var p in players)
+        {
+            p.hand.Clear();
+            p.splitHand.Clear();
+            p.isDone = !p.isActive;
+            p.hasSplit = false;
+            p.playingSplit = false;
+            p.splitWager = 0;
+        }
+
+        dealerHand.Clear();
+        dealerScore = 0;
     }
 
     private int PayoutFor(List<Card> hand, int wager, int dealerFinal)
@@ -383,6 +461,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
         foreach (var p in players)
         {
+            if (p == null || !p.isActive) continue;
             // main hand
             p.cash += PayoutFor(p.hand, p.wager, dealerFinal);
 
@@ -415,46 +494,16 @@ public class MultiplayerGameManager : MonoBehaviour
     }
 
 
-    private void AutoWagerBots()
-    {
-        // Only host can mutate authoritative state.
-        if (!isHost) return;
-        if (roundInProgress) return;
-
-        bool changed = false;
-
-        for (int i = 0; i < seats.Count; i++)
-        {
-            var s = seats[i];
-            if (s == null || s.player == null) continue;
-            if (!s.player.isBot) continue;
-
-            // Ensure bots meet the minimum bet so they participate.
-            if (s.player.wager >= MIN_BET) continue;
-
-            int need = MIN_BET - s.player.wager;
-            if (need <= 0) continue;
-
-            int bet = Mathf.Clamp(need, 0, s.player.cash);
-            if (bet <= 0) continue;
-
-            s.player.wager += bet;
-            s.player.cash -= bet;
-            changed = true;
-
-            if (s.ui) s.ui.UpdateMoneyUI(s.player.cash, s.player.wager);
-        }
-
-        if (changed)
-        {
-            UpdateCashUI();
-            BroadcastState();
-        }
-    }
-    void UpdateCashUI()
+    private void UpdateCashUI()
     {
         for (int i = 0; i < players.Count && i < playerCashTexts.Count; i++)
-            playerCashTexts[i].text = $"{players[i].playerName}: ${players[i].cash:N0}";
+        {
+            var p = players[i];
+            if (!p.isActive)
+                playerCashTexts[i].text = "";
+            else
+                playerCashTexts[i].text = $"{p.playerName}: ${p.cash:N0}";
+        }
 
         UpdateLocalCashBig();
     }
@@ -758,6 +807,7 @@ public class MultiplayerGameManager : MonoBehaviour
             {
                 playerName = p.playerName,
                 isBot = p.isBot,
+                isActive = p.isActive,
                 cash = p.cash,
                 wager = p.wager,
                 splitWager = p.splitWager,
@@ -811,6 +861,7 @@ public class MultiplayerGameManager : MonoBehaviour
 
             p.playerName = pd.playerName;
             p.isBot = pd.isBot;
+            p.isActive = pd.isActive;
             p.cash = pd.cash;
             p.wager = pd.wager;
             p.splitWager = pd.splitWager;

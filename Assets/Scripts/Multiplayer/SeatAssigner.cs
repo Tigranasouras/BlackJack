@@ -47,28 +47,54 @@ public class SeatAssigner : MonoBehaviour
             yield break;
         }
 
-        //Humans occupy seats 0...count-1
+        // Host controls whether empty seats become bots.
+        bool fillBots = SteamMatchmaking.GetLobbyData(lobbyId, "fillBots") == "1";
+
+        // Prefer a stable seat map stored in lobby data (rejoin-friendly).
+        ulong[] seatSteamIds = new ulong[game.seats.Count];
+        bool hasSeatMap = false;
+        for (int i = 0; i < seatSteamIds.Length; i++)
+        {
+            string v = SteamMatchmaking.GetLobbyData(lobbyId, $"seat{i}");
+            if (ulong.TryParse(v, out var sid) && sid != 0)
+            {
+                seatSteamIds[i] = sid;
+                hasSeatMap = true;
+            }
+        }
+
+        // Fallback: if no seat map exists yet, use Steam's member ordering.
+        if (!hasSeatMap)
+        {
+            for (int i = 0; i < game.seats.Count; i++)
+            {
+                if (i < count)
+                    seatSteamIds[i] = SteamMatchmaking.GetLobbyMemberByIndex(lobbyId, i).m_SteamID;
+            }
+        }
+
         for (int seat = 0; seat < game.seats.Count; seat++)
         {
-            if (seat < count)
+            ulong sid = seatSteamIds[seat];
+            if (sid != 0)
             {
-                var id = SteamMatchmaking.GetLobbyMemberByIndex(lobbyId, seat);
+                var id = new CSteamID(sid);
                 string name = SteamFriends.GetFriendPersonaName(id);
-                game.SetSeatOwner(seat, id.m_SteamID, name, isBot: false);
+                game.SetSeatOwner(seat, sid, name, isBot: false, isActive: true);
 
                 if (avatarSlots != null && seat < avatarSlots.Length && avatarSlots[seat])
                 {
                     var sp = SteamImageUtils.GetAvatarSprite(id, true);
                     avatarSlots[seat].sprite = sp;
                     var c = avatarSlots[seat].color; c.a = sp ? 1f : 0.4f; avatarSlots[seat].color = c;
-
-
                 }
             }
             else
             {
-                //Bots for the rest
-                game.SetSeatOwner(seat, 0UL, $"Bot{seat}", isBot: true);
+                if (fillBots)
+                    game.SetSeatOwner(seat, 0UL, $"Bot{seat + 1}", isBot: true, isActive: true);
+                else
+                    game.SetSeatOwner(seat, 0UL, "", isBot: true, isActive: false);
             }
         }
 
@@ -81,16 +107,16 @@ public class SeatAssigner : MonoBehaviour
         if (game.sharedControls) game.sharedControls.SetBettingEnabled(localSeat >= 0); //turn on wagers
     }
 
-        
+
     public void LocalSoloFallback()
     {
         game.BuildEmptyTable(game.seatUIs.Count);
 
         var me = SteamManager.Initialized ? SteamUser.GetSteamID().m_SteamID : 1UL;
-        game.SetSeatOwner(0, me, SteamManager.Initialized ? SteamFriends.GetPersonaName() : "You", isBot: false);
+        game.SetSeatOwner(0, me, SteamManager.Initialized ? SteamFriends.GetPersonaName() : "You", isBot: false, isActive: true);
 
-        for (int i = 1; i < game.seats.Count ; i++)
-            game.SetSeatOwner(i, 0UL, $"Bot{i}", isBot: true);
+        for (int i = 1; i < game.seats.Count; i++)
+            game.SetSeatOwner(i, 0UL, $"Bot{i + 1}", isBot: true, isActive: true);
 
         game.BeginBettingPhase();
     }
