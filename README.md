@@ -112,12 +112,6 @@ If I continue developing this project, I plan to:
 
 ---
 
-## 📘 Course Context (If Applicable)
-
-This project was developed as part of my ongoing coursework and personal exploration of **game systems, networking, and applied probability** in computer science.
-
----
-
 ## 📫 Author
 
 **Daron Baltazar**  
