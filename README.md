@@ -56,7 +56,7 @@ Players can join the same table, place wagers, play through full rounds, and exp
 
 ---
 
-## 📂 Code Structure (High-Level)
+## 📂 Code Structure
 
 - `GameManager`
   - Controls round flow, betting, dealing, and resolution
